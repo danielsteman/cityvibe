@@ -1,0 +1,20 @@
+[project]
+name = "cityvibe-etl"
+version = "0.1.0"
+description = "ETL pipeline for processing and enriching events"
+requires-python = ">=3.13"
+dependencies = [
+    "cityvibe-core",
+    "cityvibe-common",
+]
+
+[tool.uv.sources]
+cityvibe-core = { workspace = true }
+cityvibe-common = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+extend-exclude = []

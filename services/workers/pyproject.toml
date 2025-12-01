@@ -1,0 +1,26 @@
+[project]
+name = "workers"
+version = "0.1.0"
+description = "Celery workers for scraping and ETL"
+requires-python = ">=3.13"
+dependencies = [
+    "celery>=5.3.0",
+    "scrapy>=2.11.0",
+    "playwright>=1.40.0",
+    "beautifulsoup4>=4.12.0",
+    "cityvibe-core",
+    "cityvibe-common",
+    "cityvibe-etl",
+]
+
+[tool.uv.sources]
+cityvibe-core = { workspace = true }
+cityvibe-common = { workspace = true }
+cityvibe-etl = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+worker = "workers.main:main"

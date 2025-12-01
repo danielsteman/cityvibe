@@ -1,0 +1,5 @@
+# Deployment and utility scripts
+# - deploy.sh - Deployment automation
+# - setup.sh - Initial infrastructure setup
+# - backup.sh - Database backup scripts
+# - health-check.sh - Service health checks

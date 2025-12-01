@@ -1,0 +1,16 @@
+[project]
+name = "scheduler"
+version = "0.1.0"
+description = "Celery Beat scheduler"
+requires-python = ">=3.13"
+dependencies = ["celery>=5.3.0", "cityvibe-core"]
+
+[tool.uv.sources]
+cityvibe-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+scheduler = "scheduler.main:main"

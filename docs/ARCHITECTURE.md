@@ -29,7 +29,7 @@ City Vibe aggregates event and activity data from multiple sources, normalizes i
 
 ### Core Services
 
-- **Language**: Python 3.11+ (excellent scraping/ML ecosystem)
+- **Language**: Python 3.13+ (excellent scraping/ML ecosystem)
 - **Scraping Framework**:
   - **Scrapy** for structured scraping (sitemaps, RSS feeds)
   - **Playwright** for JavaScript-heavy sites
@@ -545,7 +545,7 @@ docker-compose up  # PostgreSQL, Redis, Qdrant, workers, API
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.13+
 - PostgreSQL 15+
 - Redis
 - Docker & Docker Compose

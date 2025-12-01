@@ -1,0 +1,5 @@
+# Kubernetes manifests for production deployment
+# - Deployments for services (mcp-server, api, workers, scheduler)
+# - Services and Ingress configurations
+# - ConfigMaps and Secrets
+# - StatefulSets for PostgreSQL (if self-hosted)

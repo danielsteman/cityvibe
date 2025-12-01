@@ -1,0 +1,5 @@
+# Terraform configurations for cloud infrastructure (optional)
+# - AWS/GCP/Azure infrastructure definitions
+# - VPC, subnets, security groups
+# - RDS/Cloud SQL database instances
+# - Load balancers and networking

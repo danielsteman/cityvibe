@@ -1,0 +1,22 @@
+[project]
+name = "api"
+version = "0.1.0"
+description = "FastAPI REST API"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "cityvibe-core",
+    "cityvibe-common",
+]
+
+[tool.uv.sources]
+cityvibe-core = { workspace = true }
+cityvibe-common = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+api = "api.main:main"

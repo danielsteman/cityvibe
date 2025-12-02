@@ -1,0 +1,32 @@
+# Python Code Standards
+
+## HTTP Requests
+- Always use `httpx` for making HTTP requests (both sync and async)
+- Prefer `httpx.AsyncClient` for async code
+- Do not use `requests`, `urllib`, or `aiohttp` for HTTP requests
+- Use proper context managers or `async with` for client lifecycle management
+
+## Type Annotations
+- Use type annotations for all function parameters, return types, and class attributes
+- Prefer builtin types (`list`, `dict`, `tuple`, `set`) over `typing` module equivalents when possible (Python 3.9+)
+- Use `list[str]` instead of `List[str]`
+- Use `dict[str, int]` instead of `Dict[str, int]`
+- Use `tuple[int, str]` instead of `Tuple[int, str]`
+- Use `set[str]` instead of `Set[str]`
+- Only import from `typing` when necessary (e.g., `Optional`, `Union`, `Any`, `Callable`, `Protocol`, `TYPE_CHECKING`)
+- Use `|` for unions when possible (Python 3.10+): `str | int` instead of `Union[str, int]`
+- Use `X | None` instead of `Optional[X]` when possible (Python 3.10+)
+
+## Code Quality
+- All code must pass the configured linters (ruff and mypy)
+- Run `ruff check` and `mypy` before committing code
+- Fix all linting errors and type checking issues
+- Follow the project's ruff configuration (line length: 100, Python 3.13 target)
+
+## General Python Best Practices
+- Use f-strings for string formatting
+- Prefer pathlib.Path over os.path for file operations
+- Use dataclasses or Pydantic models for structured data
+- Follow PEP 8 style guidelines (enforced by ruff)
+- Use async/await properly for asynchronous operations
+- Handle errors appropriately with try/except blocks

@@ -23,6 +23,12 @@
 - Fix all linting errors and type checking issues
 - Follow the project's ruff configuration (line length: 100, Python 3.13 target)
 
+## Imports
+- All imports must be at the top of the file, after module docstrings but before any other code
+- Group imports in this order: standard library, third-party, local imports
+- Use blank lines to separate import groups
+- Do not place imports inside functions, classes, or conditional blocks (except for `TYPE_CHECKING` imports)
+
 ## General Python Best Practices
 - Use f-strings for string formatting
 - Prefer pathlib.Path over os.path for file operations

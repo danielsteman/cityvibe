@@ -66,6 +66,18 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]
+pythonpath = [
+    "packages/cityvibe-core/src",
+    "packages/cityvibe-common/src",
+    "packages/cityvibe-etl/src",
+    "services/api/src",
+    "services/workers/src",
+    "services/mcp-server/src",
+    "services/scheduler/src",
+]
 
 [tool.coverage.run]
 source = ["packages", "services"]

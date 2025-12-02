@@ -1,6 +1,6 @@
 """Base scraper class with common functionality."""
 
-from cityvibe_core.models.venue import Venue  # Will be created
+from cityvibe_core.models.venue import VenueBase
 
 
 class BaseScraper:
@@ -11,12 +11,12 @@ class BaseScraper:
     the `scrape()` method to extract raw event data from the source.
     """
 
-    def __init__(self, venue: Venue):
+    def __init__(self, venue: VenueBase):
         """
         Initialize scraper with venue configuration.
 
         Args:
-            venue: Venue model containing website URL and scraper config
+            venue: Venue model/schema containing website URL and scraper config
         """
         self.venue = venue
         # TODO: Initialize rate limiter
@@ -53,11 +53,15 @@ class BaseScraper:
 
         Returns:
             HTML content as string
+
+        Raises:
+            NotImplementedError: Must be implemented by subclasses
         """
         # TODO: Implement with httpx, rate limiting, retries
         # await self.rate_limiter.wait_if_needed()
         # response = await httpx.get(url)
         # return response.text
+        raise NotImplementedError("Subclasses must implement fetch_html()")
 
     async def parse_html(self, html: str) -> list[dict]:
         """
@@ -71,9 +75,13 @@ class BaseScraper:
 
         Returns:
             List of raw event dictionaries
+
+        Raises:
+            NotImplementedError: Must be implemented by subclasses
         """
         # TODO: Implement with BeautifulSoup4
         # from bs4 import BeautifulSoup
         # soup = BeautifulSoup(html, 'html.parser')
         # # Extract events using selectors from venue.scraper_config
         # return events
+        raise NotImplementedError("Subclasses must implement parse_html()")

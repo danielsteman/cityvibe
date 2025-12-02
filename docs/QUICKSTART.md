@@ -1,4 +1,4 @@
-# Quick Start Guide
+# Quick Start Guide (WIP)
 
 This guide will help you get the City Vibe project up and running using `uv` for dependency management.
 

@@ -6,13 +6,10 @@ readme = "README.md"
 requires-python = ">=3.13"
 
 [tool.uv.workspace]
-members = [
-    "packages/*",
-    "services/*",
-]
+members = ["packages/*", "services/*"]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "pytest>=7.0.0",
@@ -26,8 +23,26 @@ line-length = 100
 target-version = "py313"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP", "B", "A", "C4", "DTZ", "T10", "SIM", "ARG", "PIE", "PT", "RET", "RUF"]
-ignore = ["E501"]  # Line length handled by formatter
+select = [
+    "E",
+    "F",
+    "I",
+    "N",
+    "W",
+    "UP",
+    "B",
+    "A",
+    "C4",
+    "DTZ",
+    "T10",
+    "SIM",
+    "ARG",
+    "PIE",
+    "PT",
+    "RET",
+    "RUF",
+]
+ignore = ["E501"] # Line length handled by formatter
 
 [tool.ruff.format]
 quote-style = "double"

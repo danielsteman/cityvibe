@@ -1,0 +1,20 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "pythonVersion": "3.13",
+      "pythonPlatform": "Darwin",
+      "extraPaths": [
+        "packages/cityvibe-core/src",
+        "packages/cityvibe-common/src",
+        "packages/cityvibe-etl/src",
+        "services/api/src",
+        "services/workers/src",
+        "services/mcp-server/src",
+        "services/scheduler/src"
+      ]
+    }
+  ]
+}

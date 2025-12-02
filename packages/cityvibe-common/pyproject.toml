@@ -6,6 +6,7 @@ requires-python = ">=3.13"
 dependencies = [
     "redis>=5.0.0",
     "structlog>=23.0.0",
+    "loguru>=0.7.0",
     "httpx>=0.25.0",
     "qdrant-client>=1.7.0",
     "openai>=1.0.0",

@@ -4,6 +4,7 @@ import os
 
 import pytest
 from cityvibe_core.models.venue import VenueBase
+from loguru import logger
 from playwright.async_api import async_playwright
 from workers.scrapers.filmladder_scraper import FilmladderScraper
 
@@ -62,9 +63,9 @@ class TestFilmladderScraperIntegration:
                     ), "source_url should be a valid URL"
 
         # Log results for debugging
-        print(f"\n✓ Scraped {len(events)} events from Filmladder")
+        logger.info(f"Scraped {len(events)} events from Filmladder")
         if events:
-            print(f"  Sample event: {events[0]}")
+            logger.debug(f"Sample event: {events[0]}")
 
     @pytest.mark.asyncio
     async def test_parse_real_html_structure(self):
@@ -98,9 +99,9 @@ class TestFilmladderScraperIntegration:
 
         # If parsing found events, validate them
         if events:
-            print(f"\n✓ Parsed {len(events)} events from real HTML")
-            print(f"  HTML length: {len(html)} characters")
-            print(f"  Sample event keys: {list(events[0].keys())}")
+            logger.info(f"Parsed {len(events)} events from real HTML")
+            logger.debug(f"HTML length: {len(html)} characters")
+            logger.debug(f"Sample event keys: {list(events[0].keys())}")
 
             # Check that we're extracting meaningful data
             sample = events[0]

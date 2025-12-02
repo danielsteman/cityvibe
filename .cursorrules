@@ -29,6 +29,17 @@
 - Use blank lines to separate import groups
 - Do not place imports inside functions, classes, or conditional blocks (except for `TYPE_CHECKING` imports)
 
+## Logging
+- Always use `loguru` for logging instead of `print` statements
+- Import logger with: `from loguru import logger`
+- Use appropriate log levels:
+  - `logger.debug()` for detailed debugging information
+  - `logger.info()` for general informational messages
+  - `logger.warning()` for warning messages
+  - `logger.error()` for error conditions
+  - `logger.exception()` for exceptions (automatically includes traceback)
+- Never use `print()` statements in production code - use loguru instead
+
 ## General Python Best Practices
 - Use f-strings for string formatting
 - Prefer pathlib.Path over os.path for file operations

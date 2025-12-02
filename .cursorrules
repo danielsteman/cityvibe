@@ -1,12 +1,14 @@
 # Python Code Standards
 
 ## HTTP Requests
+
 - Always use `httpx` for making HTTP requests (both sync and async)
 - Prefer `httpx.AsyncClient` for async code
 - Do not use `requests`, `urllib`, or `aiohttp` for HTTP requests
 - Use proper context managers or `async with` for client lifecycle management
 
 ## Type Annotations
+
 - Use type annotations for all function parameters, return types, and class attributes
 - Prefer builtin types (`list`, `dict`, `tuple`, `set`) over `typing` module equivalents when possible (Python 3.9+)
 - Use `list[str]` instead of `List[str]`
@@ -18,18 +20,21 @@
 - Use `X | None` instead of `Optional[X]` when possible (Python 3.10+)
 
 ## Code Quality
+
 - All code must pass the configured linters (ruff and mypy)
 - Run `ruff check` and `mypy` before committing code
 - Fix all linting errors and type checking issues
 - Follow the project's ruff configuration (line length: 100, Python 3.13 target)
 
 ## Imports
+
 - All imports must be at the top of the file, after module docstrings but before any other code
 - Group imports in this order: standard library, third-party, local imports
 - Use blank lines to separate import groups
 - Do not place imports inside functions, classes, or conditional blocks (except for `TYPE_CHECKING` imports)
 
 ## Logging
+
 - Always use `loguru` for logging instead of `print` statements
 - Import logger with: `from loguru import logger`
 - Use appropriate log levels:
@@ -39,8 +44,76 @@
   - `logger.error()` for error conditions
   - `logger.exception()` for exceptions (automatically includes traceback)
 - Never use `print()` statements in production code - use loguru instead
+- **Every log statement MUST start with an emoji** that best matches the message content:
+  - ✅ Success/completion: `logger.info("✅ Successfully scraped 42 events")`
+  - ❌ Error/failure: `logger.error("❌ Failed to connect to API")`
+  - ⚠️ Warning: `logger.warning("⚠️ Rate limit approaching")`
+  - 🔍 Debug/investigation: `logger.debug("🔍 Parsing HTML content")`
+  - 🚀 Start/initiation: `logger.info("🚀 Starting scraper for venue")`
+  - 📊 Data/metrics: `logger.info("📊 Found 15 events in database")`
+  - 🔄 Retry/retry: `logger.info("🔄 Retrying request (attempt 2/3)")`
+  - ⏱️ Timing/performance: `logger.info("⏱️ Request took 1.2s")`
+  - 🔐 Security/auth: `logger.warning("🔐 Authentication token expired")`
+  - 💾 Save/persistence: `logger.info("💾 Saved 10 events to database")`
+  - 🗑️ Delete/cleanup: `logger.info("🗑️ Cleaned up old cache entries")`
+  - 📥 Download/fetch: `logger.info("📥 Fetching HTML from URL")`
+  - 📤 Upload/send: `logger.info("📤 Sending events to API")`
+  - 🔗 Connection/network: `logger.info("🔗 Connected to database")`
+  - ⚡ Performance/optimization: `logger.info("⚡ Optimized query execution")`
+  - 🎯 Target/goal: `logger.info("🎯 Processing target venue")`
+  - 📝 Parse/process: `logger.debug("📝 Parsing event data")`
+  - 🎨 Format/transform: `logger.debug("🎨 Formatting event output")`
+  - Choose the most appropriate emoji for the context, or use a generic one if none fit perfectly
+
+## Docstrings
+
+- Use Google-style docstrings consistently across all code
+- **Module-level docstrings**: Single-line summary ending with a period
+  ```python
+  """Filmladder scraper for extracting event data."""
+  ```
+- **Class docstrings**: Multi-line with a brief description, followed by additional context if needed
+
+  ```python
+  """
+  Scraper for extracting events from Filmladder.
+
+  Filmladder is a Dutch cinema listing website. This scraper extracts
+  film showtimes and event information from the Amsterdam cinemas page.
+  """
+  ```
+
+- **Function/method docstrings**: Must include:
+
+  - Brief one-line summary (if the function is simple)
+  - OR multi-line description for complex functions
+  - `Args:` section listing all parameters with types and descriptions
+  - `Returns:` section describing the return value and type
+  - `Raises:` section if the function can raise exceptions
+
+  ```python
+  """
+  Extract events from Filmladder.
+
+  Args:
+      html: HTML content from the Filmladder page
+      base_url: Base URL for constructing absolute links
+
+  Returns:
+      List of raw event dictionaries
+
+  Raises:
+      ValueError: If HTML content is invalid
+  """
+  ```
+
+- Use present tense, third person for descriptions: "Extract events" not "Extracts events" or "Extracting events"
+- Keep descriptions concise but informative
+- Always end docstring summary lines with a period
+- For private methods (starting with `_`), docstrings are optional but recommended for complex logic
 
 ## General Python Best Practices
+
 - Use f-strings for string formatting
 - Prefer pathlib.Path over os.path for file operations
 - Use dataclasses or Pydantic models for structured data

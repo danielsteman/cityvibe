@@ -102,3 +102,17 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
+extraPaths = [
+    "packages/cityvibe-core/src",
+    "packages/cityvibe-common/src",
+    "packages/cityvibe-etl/src",
+    "services/api/src",
+    "services/workers/src",
+    "services/mcp-server/src",
+    "services/scheduler/src",
+]

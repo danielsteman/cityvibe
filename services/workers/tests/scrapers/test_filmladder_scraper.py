@@ -21,9 +21,7 @@ class TestFilmladderScraper:
         scraper = FilmladderScraper(venue)
 
         # Test with empty HTML
-        result = await scraper._parse_html(
-            "", "https://www.filmladder.nl/amsterdam/bioscopen"
-        )
+        result = await scraper._parse_html("", "https://www.filmladder.nl/amsterdam/bioscopen")
 
         assert result == []
 
@@ -63,8 +61,7 @@ class TestFilmladderScraper:
         assert result[0]["venue_name"] == "Test Cinema"
         assert result[0]["start_time"] == "2024-12-03T20:00:00"
         assert (
-            result[0]["description"]
-            == "A computer hacker learns about the true nature of reality"
+            result[0]["description"] == "A computer hacker learns about the true nature of reality"
         )
         assert "the-matrix" in result[0]["source_url"]
 

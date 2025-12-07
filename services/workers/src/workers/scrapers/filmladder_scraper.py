@@ -142,9 +142,7 @@ class FilmladderScraper(BaseScraper):
 
         return events
 
-    def _extract_event_data(
-        self, item: Tag, venue_name: str, base_url: str
-    ) -> dict | None:
+    def _extract_event_data(self, item: Tag, venue_name: str, base_url: str) -> dict | None:
         """
         Extract event data from a single film/item element.
 
@@ -189,9 +187,7 @@ class FilmladderScraper(BaseScraper):
         if link_elem:
             href = link_elem.get("href", "")
             if href and isinstance(href, str):
-                source_url = (
-                    urljoin(base_url, href) if not href.startswith("http") else href
-                )
+                source_url = urljoin(base_url, href) if not href.startswith("http") else href
 
         # Extract description
         description = None

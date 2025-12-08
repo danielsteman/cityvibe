@@ -1,15 +1,12 @@
 """Iamsterdam scraper for extracting event data."""
 
-from typing import Any
-
-
 import json
 import xml.etree.ElementTree as ET
+from typing import Any
 
 import httpx
 from bs4 import BeautifulSoup
 from loguru import logger
-
 
 from workers.scrapers.base import BaseScraper
 
@@ -109,9 +106,7 @@ class IamsterdamScraper(BaseScraper):
             logger.error(f"❌ Critical error parsing sitemap: {e}")
             return []
 
-    async def _scrape_event_page(
-        self, client: httpx.AsyncClient, url: str
-    ) -> dict | None:
+    async def _scrape_event_page(self, client: httpx.AsyncClient, url: str) -> dict | None:
         """
         Scrape a single event or location page to extract Next.js data.
 
@@ -153,22 +148,14 @@ class IamsterdamScraper(BaseScraper):
 
             # Handle Event pages
             if page_type == "Event" or "event" in page_props or "Event" in page_props:
-                event = (
-                    page_props.get("event")
-                    or page_props.get("Event")
-                    or page_props.get("data")
-                )
+                event = page_props.get("event") or page_props.get("Event") or page_props.get("data")
                 if not event:
                     return None
 
                 return self._normalize_event(event, page_props, url)
 
             # Handle Location pages (like AMAZE)
-            if (
-                page_type == "Location"
-                or "Location" in page_props
-                or "location" in page_props
-            ):
+            if page_type == "Location" or "Location" in page_props or "location" in page_props:
                 loc = page_props.get("Location") or page_props.get("location")
 
                 # Fallback: some pages inline the location-like data on the root
@@ -187,9 +174,7 @@ class IamsterdamScraper(BaseScraper):
             logger.error(f"❌ Error scraping {url}: {e}")
             return None
 
-    def _normalize_location_as_event(
-        self, loc: dict, page_props: dict, url: str
-    ) -> dict:
+    def _normalize_location_as_event(self, loc: dict, page_props: dict, url: str) -> dict:
         """
         Normalize a Location blocks to event-like structure.
 
@@ -303,4 +288,3 @@ class IamsterdamScraper(BaseScraper):
             "highlights": event.get("highlights", []),
             "source_url": url,
         }
-

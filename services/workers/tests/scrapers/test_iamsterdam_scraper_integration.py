@@ -46,27 +46,19 @@ class TestIamsterdamScraperIntegration:
 
                 # start_time and source_url are optional but should be strings if present
                 if "start_time" in event and event["start_time"] is not None:
-                    assert isinstance(
-                        event["start_time"], str
-                    ), "start_time should be a string"
+                    assert isinstance(event["start_time"], str), "start_time should be a string"
 
                 if "source_url" in event and event["source_url"] is not None:
-                    assert isinstance(
-                        event["source_url"], str
-                    ), "source_url should be a string"
-                    assert event["source_url"].startswith(
-                        "http"
-                    ), "source_url should be a valid URL"
+                    assert isinstance(event["source_url"], str), "source_url should be a string"
+                    assert event["source_url"].startswith("http"), (
+                        "source_url should be a valid URL"
+                    )
 
                 if "description" in event and event["description"] is not None:
-                    assert isinstance(
-                        event["description"], str
-                    ), "description should be a string"
+                    assert isinstance(event["description"], str), "description should be a string"
 
                 if "location" in event and event["location"] is not None:
-                    assert isinstance(
-                        event["location"], str
-                    ), "location should be a string"
+                    assert isinstance(event["location"], str), "location should be a string"
 
         # Log results for debugging
         logger.info(f"✅ Scraped {len(events)} events from Iamsterdam")
@@ -87,7 +79,6 @@ class TestIamsterdamScraperIntegration:
 
         # Test scraping a single event page (using a sample URL from sitemap)
         # This test will fail if the URL structure changes, but validates the scraping logic
-        import httpx
 
         async with httpx.AsyncClient(timeout=15.0) as client:
             # Try to get URLs from sitemap first
@@ -102,9 +93,12 @@ class TestIamsterdamScraperIntegration:
             # Validate structure
             if event_data:
                 assert event_data.get("kind") in ["Event", "Location"]
-                assert event_data.get("title") or event_data.get("name"), "Should have a title or name"
+                assert event_data.get("title") or event_data.get("name"), (
+                    "Should have a title or name"
+                )
                 assert event_data.get("source_url"), "Should have source_url"
-                logger.info(f"✅ Successfully scraped event: {event_data.get('title') or event_data.get('name')}")
+                logger.info(
+                    f"✅ Successfully scraped event: {event_data.get('title') or event_data.get('name')}"
+                )
             else:
                 logger.warning(f"⚠️ No data extracted from {test_url}")
-

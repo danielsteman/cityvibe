@@ -4,7 +4,6 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from bs4 import BeautifulSoup
 from cityvibe_core.models.venue import VenueBase
 from httpx import Response
 from workers.scrapers.iamsterdam_scraper import IamsterdamScraper

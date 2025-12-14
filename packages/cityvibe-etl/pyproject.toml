@@ -6,6 +6,7 @@ requires-python = ">=3.13"
 dependencies = [
     "cityvibe-core",
     "cityvibe-common",
+    "pandas>=2.0.0",
 ]
 
 [tool.uv.sources]

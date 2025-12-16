@@ -34,7 +34,8 @@ cityvibe/
 │   ├── mcp-server/             # MCP server for LLM queries
 │   ├── api/                     # FastAPI REST API
 │   ├── workers/                 # Celery workers (scrapers, ETL)
-│   └── scheduler/               # Celery Beat scheduler
+│   ├── scheduler/               # Celery Beat scheduler
+│   └── agents/                  # LangGraph multi-agent system
 │
 ├── apps/                        # Frontend applications (future)
 │   ├── web/                     # Web app (Next.js/React)
@@ -451,6 +452,77 @@ dependencies = [
 cityvibe-core = { workspace = true }
 ```
 
+### `services/agents/` - Multi-Agent System
+
+```
+services/agents/
+├── pyproject.toml
+├── README.md
+└── src/
+    └── agents/
+        ├── __init__.py
+        ├── main.py               # Entry point: Compiles the Graph & Run Loop
+        ├── state.py               # Shared TypedDict & Pydantic Models
+        ├── utils.py               # Helper to load agent.md files
+        ├── database.py            # PostGIS/Neon connection logic
+        └── agents/
+            ├── __init__.py
+            ├── orchestrator/       # Supervisor agent
+            │   ├── __init__.py
+            │   ├── agent.md       # The Supervisor Prompt
+            │   └── node.py        # Routing Logic
+            ├── lumiere/           # Movies agent
+            │   ├── __init__.py
+            │   ├── agent.md       # The "Director" Prompt
+            │   ├── node.py        # LangGraph Node
+            │   └── tools.py       # Filmladder SQL Queries
+            ├── gastronomist/      # Food agent
+            │   ├── __init__.py
+            │   ├── agent.md       # The "Foodie" Prompt
+            │   ├── node.py        # LangGraph Node
+            │   └── tools.py       # De Buik PostGIS Queries
+            ├── socialite/         # Events agent
+            │   ├── __init__.py
+            │   ├── agent.md       # The "Guide" Prompt
+            │   ├── node.py        # LangGraph Node
+            │   └── tools.py       # Iamsterdam Queries
+            └── weatherman/        # Weather/Logistics agent
+                ├── __init__.py
+                ├── agent.md       # The "Realist" Prompt
+                ├── node.py        # LangGraph Node
+                └── tools.py       # Weather API & Buffer Logic
+```
+
+**`services/agents/pyproject.toml`:**
+
+```toml
+[project]
+name = "agents"
+version = "0.1.0"
+description = "LangGraph-based multi-agent system for intelligent event recommendations"
+requires-python = ">=3.13"
+dependencies = [
+    "langgraph>=0.2.0",
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "httpx>=0.25.0",
+    "loguru>=0.7.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "cityvibe-core",
+    "cityvibe-common",
+]
+
+[tool.uv.sources]
+cityvibe-core = { workspace = true }
+cityvibe-common = { workspace = true }
+
+[project.scripts]
+agents = "agents.main:main"
+```
+
+**Note**: The agents service uses LangGraph to orchestrate multiple specialized agents (orchestrator, lumiere, gastronomist, socialite, weatherman) that work together to provide intelligent event recommendations based on user queries.
+
 ### `apps/` - Frontend Applications (Future)
 
 ```
@@ -546,6 +618,10 @@ uv run celery -A workers.main worker --loglevel=info
 # Start Celery Beat scheduler
 cd services/scheduler
 uv run celery -A scheduler.main beat --loglevel=info
+
+# Start Agents service
+cd services/agents
+uv run agents
 ```
 
 ### Adding Dependencies

@@ -70,7 +70,7 @@ REDIS_URL=redis://localhost:6379/0
 # Qdrant
 QDRANT_URL=http://localhost:6333
 
-# OpenAI (for embeddings)
+# OpenAI (for embeddings and agents)
 OPENAI_API_KEY=your-api-key-here
 
 # Celery
@@ -118,6 +118,19 @@ uv run celery -A workers.main worker --loglevel=info
 ```bash
 cd services/scheduler
 uv run celery -A scheduler.main beat --loglevel=info
+```
+
+### Agents Service
+
+```bash
+cd services/agents
+uv run agents
+```
+
+Or from the root:
+
+```bash
+uv run --package agents agents
 ```
 
 ## Development Workflow
@@ -190,7 +203,8 @@ cityvibe/
 │   ├── mcp-server/        # MCP server
 │   ├── api/               # FastAPI REST API
 │   ├── workers/           # Celery workers
-│   └── scheduler/         # Celery Beat
+│   ├── scheduler/         # Celery Beat
+│   └── agents/            # LangGraph multi-agent system
 └── apps/              # Frontend apps (future)
     ├── web/               # Web app
     └── mobile/            # Mobile app

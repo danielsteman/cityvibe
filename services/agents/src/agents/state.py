@@ -1,0 +1,2 @@
+"""Shared TypedDict & Pydantic Models."""
+

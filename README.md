@@ -6,8 +6,8 @@ City Vibe indexes fun things to do in cities. We do this by collecting data from
 
 This is a monorepo managed with [uv](https://github.com/astral-sh/uv) workspaces, containing:
 
-- **Packages**: Shared Python libraries (`cityvibe-core`, `cityvibe-common`)
-- **Services**: Backend services (MCP server, FastAPI API, Celery workers)
+- **Packages**: Shared Python libraries (`cityvibe-core`, `cityvibe-common`, `cityvibe-etl`)
+- **Services**: Backend services (MCP server, FastAPI API, Celery workers, Agents service)
 - **Apps**: Frontend applications (web and mobile - coming soon)
 
 ## Quick Start
@@ -43,3 +43,4 @@ docker-compose up -d
 - **API Framework**: FastAPI
 - **MCP Server**: Python MCP SDK
 - **Task Queue**: Celery
+- **Agents**: LangGraph multi-agent system

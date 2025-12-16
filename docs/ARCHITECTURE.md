@@ -2,7 +2,7 @@
 
 ## Overview
 
-City Vibe aggregates event and activity data from multiple sources, normalizes it, and exposes it via an MCP server for LLM querying. The architecture separates data collection, processing, storage, and querying concerns.
+City Vibe aggregates event and activity data from multiple sources, normalizes it, and exposes it via an MCP server and a multi-agent system for LLM querying. The architecture separates data collection, processing, storage, and querying concerns. The agents service provides intelligent, context-aware recommendations by orchestrating specialized agents for movies, food, events, and weather.
 
 ## System Architecture
 
@@ -23,6 +23,26 @@ City Vibe aggregates event and activity data from multiple sources, normalizes i
                                                                  │     LLM      │
                                                                  │   (Client)   │
                                                                  └──────────────┘
+                                                                        │
+                                                                        ▼
+                                                             ┌──────────────┐
+                                                             │   Agents     │
+                                                             │   Service    │
+                                                             │ (LangGraph)  │
+                                                             └──────────────┘
+                                                                        │
+                                                    ┌───────────────────┼───────────────────┐
+                                                    ▼                   ▼                   ▼
+                                          ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+                                          │  Lumiere     │    │ Gastronomist │    │  Socialite   │
+                                          │  (Movies)    │    │   (Food)     │    │   (Events)   │
+                                          └──────────────┘    └──────────────┘    └──────────────┘
+                                                                        │
+                                                                        ▼
+                                                             ┌──────────────┐
+                                                             │  Weatherman  │
+                                                             │ (Weather)    │
+                                                             └──────────────┘
 ```
 
 ## Technology Stack
@@ -45,6 +65,7 @@ City Vibe aggregates event and activity data from multiple sources, normalizes i
 - **MCP Server**: Python with `mcp` SDK
 - **API Framework**: **FastAPI** (async, OpenAPI docs, type hints)
 - **Embeddings**: **OpenAI** or **Ollama** (local) for semantic search
+- **Agents**: **LangGraph** multi-agent system for intelligent recommendations
 
 ### Infrastructure
 
@@ -404,7 +425,50 @@ async def call_tool(name: str, arguments: dict):
     # ... handle other tools
 ```
 
-### 5. API Layer (Optional)
+### 5. Agents Service
+
+**LangGraph-based Multi-Agent System** for intelligent event recommendations:
+
+The agents service orchestrates multiple specialized agents that work together to provide comprehensive recommendations:
+
+- **Orchestrator**: Supervisor agent that routes queries to appropriate specialized agents
+- **Lumiere**: Movie recommendations using Filmladder data
+- **Gastronomist**: Restaurant and food recommendations using De Buik data
+- **Socialite**: Event recommendations using Iamsterdam data
+- **Weatherman**: Weather and logistics information for planning
+
+**Architecture Pattern**: LangGraph state machine where agents collaborate to build comprehensive recommendations based on user queries.
+
+```python
+# agents/main.py
+from langgraph.graph import StateGraph
+from agents.agents.orchestrator.node import orchestrator_node
+from agents.agents.lumiere.node import lumiere_node
+from agents.agents.gastronomist.node import gastronomist_node
+from agents.agents.socialite.node import socialite_node
+from agents.agents.weatherman.node import weatherman_node
+
+# Build the graph
+graph = StateGraph(AgentState)
+graph.add_node("orchestrator", orchestrator_node)
+graph.add_node("lumiere", lumiere_node)
+graph.add_node("gastronomist", gastronomist_node)
+graph.add_node("socialite", socialite_node)
+graph.add_node("weatherman", weatherman_node)
+
+# Define routing logic
+graph.set_entry_point("orchestrator")
+graph.add_conditional_edges("orchestrator", route_to_agent)
+# ... additional edges
+```
+
+**Integration Points**:
+- Uses `cityvibe-core` for database access and domain models
+- Uses `cityvibe-common` for utilities (geocoding, embeddings)
+- Can be triggered via API endpoints or scheduled tasks
+- Results can be exposed via MCP server or REST API
+
+### 6. API Layer (Optional)
 
 FastAPI REST API for direct access (non-LLM clients):
 

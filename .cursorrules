@@ -34,6 +34,7 @@
 - Group imports in this order: standard library, third-party, local imports
 - Use blank lines to separate import groups
 - Example of correct import order:
+
   ```python
   """Module docstring."""
 

@@ -28,10 +28,27 @@
 
 ## Imports
 
-- All imports must be at the top of the file, after module docstrings but before any other code
+- **ALWAYS place all imports at the top of the file** - imports must come immediately after module docstrings and before any other code
+- Never place imports in the middle of the file, inside functions, classes, or conditional blocks
+- The only exception is `TYPE_CHECKING` imports which may be placed in conditional blocks for type checking only
 - Group imports in this order: standard library, third-party, local imports
 - Use blank lines to separate import groups
-- Do not place imports inside functions, classes, or conditional blocks (except for `TYPE_CHECKING` imports)
+- Example of correct import order:
+  ```python
+  """Module docstring."""
+
+  from datetime import UTC, datetime
+  from uuid import UUID
+
+  from celery import shared_task
+  from loguru import logger
+  from sqlalchemy import select
+
+  from cityvibe_core.database import get_session, init_db
+  from cityvibe_core.models import Venue
+
+  from workers.scrapers.base import BaseScraper
+  ```
 
 ## Logging
 

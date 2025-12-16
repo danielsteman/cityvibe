@@ -25,24 +25,24 @@ City Vibe aggregates event and activity data from multiple sources, normalizes i
                                                                  └──────────────┘
                                                                         │
                                                                         ▼
-                                                             ┌──────────────┐
-                                                             │   Agents     │
-                                                             │   Service    │
-                                                             │ (LangGraph)  │
-                                                             └──────────────┘
+                                                                 ┌──────────────┐
+                                                                 │   Agents     │
+                                                                 │   Service    │
+                                                                 │ (LangGraph)  │
+                                                                 └──────────────┘
                                                                         │
                                                     ┌───────────────────┼───────────────────┐
                                                     ▼                   ▼                   ▼
-                                          ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-                                          │  Lumiere     │    │ Gastronomist │    │  Socialite   │
-                                          │  (Movies)    │    │   (Food)     │    │   (Events)   │
-                                          └──────────────┘    └──────────────┘    └──────────────┘
+                                             ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+                                             │  Lumiere     │    │ Gastronomist │    │  Socialite   │
+                                             │  (Movies)    │    │   (Food)     │    │   (Events)   │
+                                             └──────────────┘    └──────────────┘    └──────────────┘
                                                                         │
                                                                         ▼
-                                                             ┌──────────────┐
-                                                             │  Weatherman  │
-                                                             │ (Weather)    │
-                                                             └──────────────┘
+                                                                 ┌──────────────┐
+                                                                 │  Weatherman  │
+                                                                 │ (Weather)    │
+                                                                 └──────────────┘
 ```
 
 ## Technology Stack

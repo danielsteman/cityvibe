@@ -1,0 +1,21 @@
+# SOPS (Secrets Operations) configuration
+# See: https://github.com/getsops/sops
+#
+# SOPS encrypts your .env file so secrets can be safely committed to git.
+# The encrypted file (.env.encrypted) is committed, while the decrypted
+# .env file remains in .gitignore.
+
+creation_rules:
+  # Rule for encrypting .env files
+  - path_regex: \.env(\.encrypted)?$
+    # Age encryption (recommended - simpler and faster than GPG)
+    # To set up:
+    # 1. Install age: brew install age (macOS) or see https://github.com/FiloSottile/age
+    # 2. Generate keypair: age-keygen -o ~/.sops-age-key
+    # 3. Export public key: age-keygen -y ~/.sops-age-key
+    # 4. Replace the key below with your public key
+    age: >-
+      age1l3at9ug0aeew6245j4zy47ayvnejnv8vst2e9qe89t8n753zvcmsc0tlwx
+    # Uncomment and configure if you prefer GPG instead:
+    # pgp: >-
+    #   YOUR_GPG_KEY_FINGERPRINT

@@ -58,7 +58,27 @@ alembic upgrade head
 
 ### 5. Configure Environment Variables
 
-Create a `.env` file in the root directory:
+**Option 1: Using SOPS (Recommended for Teams)**
+
+This project uses [SOPS](https://github.com/getsops/sops) to encrypt secrets. See [SOPS.md](./SOPS.md) for full setup instructions.
+
+```bash
+# Decrypt the encrypted .env file
+./infrastructure/scripts/decrypt-env.sh
+
+# Or manually:
+sops -d .env.encrypted > .env
+```
+
+**Option 2: Manual Setup**
+
+Create a `.env` file from the example:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` and add your actual values:
 
 ```bash
 # Database
@@ -76,6 +96,12 @@ OPENAI_API_KEY=your-api-key-here
 # Celery
 CELERY_BROKER_URL=redis://localhost:6379/0
 CELERY_RESULT_BACKEND=redis://localhost:6379/0
+```
+
+**Note**: If using SOPS, encrypt your `.env` before committing:
+
+```bash
+./infrastructure/scripts/encrypt-env.sh
 ```
 
 ## Running Services

@@ -43,6 +43,11 @@ uv.lock
 .env.local
 .env.*.local
 
+# SOPS encrypted files - keep encrypted version in repo, ignore decrypted
+# The encrypted .env file should be committed: .env.encrypted
+.env.encrypted
+.env.sops
+
 # Testing
 .pytest_cache/
 .coverage

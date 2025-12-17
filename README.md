@@ -32,6 +32,7 @@ docker-compose up -d
 - [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System architecture and design
 - [PROJECT_STRUCTURE.md](./docs/PROJECT_STRUCTURE.md) - Detailed project structure
 - [QUICKSTART.md](./docs/QUICKSTART.md) - Getting started guide
+- [SOPS.md](./docs/SOPS.md) - Secrets management with SOPS
 
 ## Technology Stack
 

@@ -79,6 +79,7 @@ class DebuikScraper(BaseScraper):
         opening_hours = self._extract_opening_hours(soup)
         description = self._extract_description(soup)
         image_url = self._extract_image(soup)
+        tags = self._extract_tags(soup)
 
         # Find external website (fallback to own URL if no external link)
         external_website = None
@@ -101,13 +102,13 @@ class DebuikScraper(BaseScraper):
             "image_url": image_url,
             "features": features,
             "opening_hours": opening_hours,
+            "tags": tags,
         }
 
         return {
             "name": addr_info["name"],
             "website_url": final_url,
             "city": addr_info["city"],
-            "state": "Noord-Holland",
             "country": "NL",
             "latitude": lat,
             "longitude": lon,
@@ -179,12 +180,16 @@ class DebuikScraper(BaseScraper):
         """
         # Slideshow image
         img = soup.select_one(".restaurant-slideshow .restaurant-slide img.imgfade-transition")
-        if img and img.get("src"):
-            return img["src"]
+        if img:
+            src = img.get("src")
+            if src and isinstance(src, str):
+                return src
         # Thumbnail fallback
         thumb = soup.select_one(".thumbnails img")
-        if thumb and thumb.get("src"):
-            return thumb["src"]
+        if thumb:
+            src = thumb.get("src")
+            if src and isinstance(src, str):
+                return src
         return None
 
     def _extract_lat_lon(self, soup: BeautifulSoup) -> tuple[Optional[Decimal], Optional[Decimal]]:
@@ -242,7 +247,7 @@ class DebuikScraper(BaseScraper):
                 continue
 
             if data_div.select_one(".openingstijden-gesloten"):
-                hours[day] = "Gesloten"
+                hours[day] = "Closed"
             else:
                 time_div = data_div.select_one(".openingstijden-restaurant")
                 if time_div:
@@ -276,6 +281,26 @@ class DebuikScraper(BaseScraper):
                     key = dt.get_text(strip=True)
                     val = dd.get_text(strip=True)
                     features[key] = val
+                    # Check for Dutch text "Soort zaak" (business type) from the website
                     if "Soort zaak" in key:
                         venue_type = val
         return venue_type, features
+
+    def _extract_tags(self, soup: BeautifulSoup) -> list[str]:
+        """
+        Extract all tags from the page-section-tags div.
+
+        Args:
+            soup: BeautifulSoup object containing the parsed HTML content.
+
+        Returns:
+            List of tag strings found on the page.
+        """
+        tags = []
+        tags_div = soup.select_one(".page-section-tags")
+        if tags_div:
+            for tag_link in tags_div.find_all("a", class_="btn-tag-large"):
+                tag_text = tag_link.get_text(strip=True)
+                if tag_text:
+                    tags.append(tag_text)
+        return tags

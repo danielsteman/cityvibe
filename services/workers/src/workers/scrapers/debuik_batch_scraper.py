@@ -6,9 +6,33 @@ from datetime import datetime, UTC
 from typing import Optional
 
 from bs4 import BeautifulSoup
+from geoalchemy2 import WKTElement
+from loguru import logger
 from playwright.async_api import async_playwright
 
+from cityvibe_core.models.venue import OpeningHours, VenueLink
 from workers.scrapers.base import BaseScraper
+from deep_translator import GoogleTranslator
+
+# Initialize translator
+translator = GoogleTranslator(source="nl", target="en")
+
+# Constants for standardization
+DUTCH_TO_ENG_DAYS = {
+    "Maandag": "monday",
+    "Dinsdag": "tuesday",
+    "Woensdag": "wednesday",
+    "Donderdag": "thursday",
+    "Vrijdag": "friday",
+    "Zaterdag": "saturday",
+    "Zondag": "sunday",
+}
+
+PRICE_MAP = {
+    "Kleine prijs": "€",
+    "Gemiddeld": "€€",
+    "Luxe": "€€€",
+}
 
 
 class DebuikScraper(BaseScraper):
@@ -17,7 +41,65 @@ class DebuikScraper(BaseScraper):
 
     Debuik is a Dutch restaurant listing website. This scraper extracts
     venue information including address, opening hours, features, and location.
+    All Dutch content is automatically translated to English.
     """
+
+    def _translate_text(self, text: str, max_retries: int = 3) -> str:
+        """
+        Translate Dutch text to English with retry logic.
+
+        Args:
+            text: Dutch text to translate
+            max_retries: Maximum number of retry attempts
+
+        Returns:
+            Translated English text, or original text if translation fails
+        """
+        if not translator or not text or not isinstance(text, str) or not text.strip():
+            return text
+
+        for attempt in range(max_retries):
+            try:
+                translated = translator.translate(text)
+                return translated if translated else text
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    continue
+                logger.warning(f"⚠️ Translation failed for '{text[:50]}...': {e}")
+                return text
+
+        return text
+
+    def _translate_dict_keys_values(self, d: dict) -> dict:
+        """
+        Translate both keys and values of a dictionary from Dutch to English.
+
+        Args:
+            d: Dictionary with Dutch keys and/or values
+
+        Returns:
+            Dictionary with translated keys and values
+        """
+        if not d:
+            return d
+
+        translated = {}
+        for key, value in d.items():
+            translated_key = self._translate_text(str(key))
+            if isinstance(value, str):
+                translated_value = self._translate_text(value)
+            elif isinstance(value, list):
+                translated_value = [
+                    self._translate_text(str(v)) if isinstance(v, str) else v
+                    for v in value
+                ]
+            elif isinstance(value, dict):
+                translated_value = self._translate_dict_keys_values(value)
+            else:
+                translated_value = value
+            translated[translated_key] = translated_value
+
+        return translated
 
     async def scrape(self) -> list[dict]:
         """
@@ -74,12 +156,50 @@ class DebuikScraper(BaseScraper):
             return None
 
         # Extract all data
-        lat, lon = self._extract_lat_lon(soup)
-        venue_type, features = self._extract_venue_features(soup)
-        opening_hours = self._extract_opening_hours(soup)
+        lat_dec, lon_dec = self._extract_lat_lon(soup)
+        if lat_dec is None or lon_dec is None:
+            return None
+
+        lat, lon = float(lat_dec), float(lon_dec)
+        venue_type, raw_features = self._extract_venue_features(soup)
+        raw_hours = self._extract_opening_hours(soup)
         description = self._extract_description(soup)
         image_url = self._extract_image(soup)
         tags = self._extract_tags(soup)
+
+        # Translate content from Dutch to English
+        logger.info("🌐 Translating content from Dutch to English...")
+        translated_description = (
+            self._translate_text(description) if description else None
+        )
+        translated_tags = (
+            [self._translate_text(tag) for tag in tags] if tags else []
+        )
+        translated_features = (
+            self._translate_dict_keys_values(raw_features)
+            if raw_features
+            else {}
+        )
+        translated_venue_type = (
+            self._translate_text(venue_type) if venue_type else None
+        )
+
+        # Standardize opening hours to OpeningHours objects
+        structured_hours = []
+        for d_day, d_time in raw_hours.items():
+            eng_day = DUTCH_TO_ENG_DAYS.get(d_day)
+            if not eng_day:
+                continue
+            if d_time in ["Gesloten", "Closed", "Unknown"]:
+                structured_hours.append(OpeningHours(day=eng_day, is_closed=True))
+            else:
+                try:
+                    start, end = d_time.split(" - ")
+                    structured_hours.append(
+                        OpeningHours(day=eng_day, opens=start, closes=end)
+                    )
+                except Exception:
+                    structured_hours.append(OpeningHours(day=eng_day, is_closed=True))
 
         # Find external website (fallback to own URL if no external link)
         external_website = None
@@ -92,28 +212,69 @@ class DebuikScraper(BaseScraper):
 
         final_url = external_website if external_website else url
 
+        # Convert external_links to list of VenueLink objects
+        external_links_list = []
+        if final_url:
+            external_links_list.append(VenueLink(label="Website", url=final_url))
+
+        # Create PostGIS POINT for location (longitude, latitude order)
+        location_point = WKTElement(f"POINT({lon} {lat})", srid=4326)
+
+        # Build translated features dict
+        translated_features_dict = {
+            "address": f"{addr_info['street']}, {addr_info['zip_code']}",
+            "image_url": image_url,
+        }
+        # Add all translated features (keys and values are already translated)
+        if translated_features:
+            for key, value in translated_features.items():
+                # Normalize key to snake_case
+                normalized_key = key.lower().replace(" ", "_")
+                translated_features_dict[normalized_key] = value
+
+        # Construct scraper config with both original and translated data
         config = {
             "source": "debuik.nl",
             "original_url": url,
             "scraped_at": datetime.now(UTC).isoformat(),
             "street": addr_info["street"],
             "zip_code": addr_info["zip_code"],
-            "description": description,
             "image_url": image_url,
-            "features": features,
-            "opening_hours": opening_hours,
-            "tags": tags,
+            "original": {
+                "description": description,
+                "venue_type": venue_type,
+                "features": raw_features,
+                "opening_hours": raw_hours,
+                "tags": tags,
+            },
+            "translated": {
+                "description": translated_description,
+                "venue_type": translated_venue_type,
+                "features": translated_features,
+                "opening_hours": raw_hours,  # Time format is same, days already mapped
+                "tags": translated_tags,
+            },
         }
 
         return {
             "name": addr_info["name"],
+            "description": translated_description,
             "website_url": final_url,
-            "city": addr_info["city"],
+            "city": addr_info.get("city") or "Amsterdam",
+            "state": "Noord-Holland",
             "country": "NL",
             "latitude": lat,
             "longitude": lon,
-            "venue_type": venue_type,
+            "location": location_point,
+            "venue_type": translated_venue_type,
+            "price_range": PRICE_MAP.get(raw_features.get("Prijsniveau", ""), "€€"),
+            "tags": list(set(translated_tags)),
+            "opening_hours": structured_hours,
+            "external_links": external_links_list,
+            "features": translated_features_dict,
             "scraper_config": config,
+            "source": "debuik",
+            "last_scraped_at": datetime.now(UTC),
             "active": True,
         }
 

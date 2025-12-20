@@ -10,6 +10,8 @@ dependencies = [
     "beautifulsoup4>=4.12.0",
     "httpx>=0.25.0",
     "loguru>=0.7.0",
+    "deep-translator>=1.11.0",
+    "geoalchemy2>=0.14.0",
     "cityvibe-core",
     "cityvibe-common",
     "cityvibe-etl",

@@ -21,10 +21,17 @@ services/workers/
 │       ├── __init__.py
 │       ├── main.py              # Celery app initialization
 │       │
-│       └── tasks/               # Celery task definitions
-│           ├── scraping/        # Scraping tasks
-│           └── etl/             # ETL task wrappers
-│               └── process_events.py
+│       ├── tasks/               # Celery task definitions
+│       │   ├── scraping/        # Scraping tasks
+│       │   │   └── scrape_venue.py
+│       │   └── etl/             # ETL task wrappers
+│       │       └── process_events.py
+│       │
+│       └── scrapers/            # Scraper implementations
+│           ├── base.py
+│           ├── debuik_batch_scraper.py
+│           ├── filmladder_scraper.py
+│           └── iamsterdam_scraper.py
 └── pyproject.toml
 ```
 
@@ -110,19 +117,28 @@ When adding a new website source (venue website):
            return raw_events
    ```
 
-2. **Create scraping task** in `tasks/scraping/`:
+2. **Create or update scraping task** in `tasks/scraping/scrape_venue.py`:
 
    ```python
    # services/workers/src/workers/tasks/scraping/scrape_venue.py
-   @task
+   from celery import shared_task
+   from workers.scrapers.venue_name_scraper import VenueNameScraper
+   from workers.tasks.etl.process_events import process_events_task
+
+   @shared_task(name="workers.scrape_venue")
    async def scrape_venue_task(venue_id: str):
+       # Get venue from database
+       venue = await get_venue(venue_id)
+
+       # Run scraper
        scraper = VenueNameScraper(venue)
        raw_events = await scraper.scrape()
+
        # Process through ETL
        await process_events_task.delay(venue_id, raw_events)
    ```
 
-3. **Register task** in `main.py` (when implemented)
+3. **Tasks are automatically registered** when imported in `main.py`
 
 4. **ETL processing** happens automatically via `cityvibe-etl` package
 

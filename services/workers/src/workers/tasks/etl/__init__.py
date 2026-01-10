@@ -1,1 +1,1 @@
-"""ETL tasks - Celery task wrappers for ETL operations."""
+"""ETL task wrappers for event processing."""

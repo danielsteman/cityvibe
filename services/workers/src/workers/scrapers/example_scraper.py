@@ -37,9 +37,9 @@ class ExampleVenueScraper(BaseScraper):
 
         # Return raw events as dictionaries
         # The ETL pipeline will normalize, validate, deduplicate, and enrich
-        return events
+        return events  # type: ignore
 
-    async def extract_events_from_page(self, page) -> list[dict]:
+    async def extract_events_from_page(self, page) -> list[dict]:  # type: ignore
         """
         Extract events from a Playwright page object.
 

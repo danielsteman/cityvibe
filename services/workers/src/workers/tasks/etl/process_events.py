@@ -1,27 +1,72 @@
-"""Celery task for processing raw events through the ETL pipeline."""
+"""Celery task wrapper for processing events through ETL pipeline."""
+
+from uuid import UUID
+
+from celery import shared_task
+from cityvibe_core.database.connection import init_db
+from cityvibe_etl.event_processor import EventProcessor
+from loguru import logger
 
 
-def process_events_task(venue_id: str, raw_events: list[dict]) -> dict:
+@shared_task(name="workers.process_events")
+async def process_events_task(venue_id: str | UUID, raw_events: list[dict]) -> dict:
     """
-    Celery task to process raw scraped events through the ETL pipeline.
+    Process raw events through the ETL pipeline.
 
-    This task is a thin wrapper around the ETL processor.
-    It handles:
-    - Task execution context
-    - Error handling and retries
-    - Result reporting
+    This task delegates to the cityvibe-etl package's EventProcessor
+    to handle normalization, validation, deduplication, and enrichment.
 
     Args:
-        venue_id: UUID of the venue
+        venue_id: UUID or string ID of the venue these events belong to
         raw_events: List of raw event dictionaries from scraper
 
     Returns:
-        Dictionary with processing results (events_new, events_updated, etc.)
+        Dictionary with processing results:
+        {
+            "venue_id": str,
+            "events_processed": int,
+            "events_new": int,
+            "events_updated": int,
+            "events_skipped": int,
+            "errors": list[str],
+            "status": "success" | "failed"
+        }
     """
-    # TODO: Implement task logic
-    # processor = EventProcessor()
-    # result = await processor.process(raw_events)
-    # return result.to_dict()
-    _ = venue_id  # Will be used when implementing
-    _ = raw_events  # Will be used when implementing
-    return {}  # Stub return
+    venue_id_str = str(venue_id)
+    logger.info(
+        f"🚀 Starting ETL processing for venue {venue_id_str} with {len(raw_events)} events"
+    )
+
+    # Initialize database connection
+    init_db()
+
+    try:
+        # Initialize ETL processor
+        processor = EventProcessor()
+
+        # Process events through ETL pipeline
+        result = await processor.process(raw_events)
+
+        logger.info(
+            f"✅ ETL processing completed for venue {venue_id_str}: "
+            f"{result.get('events_new', 0)} new, "
+            f"{result.get('events_updated', 0)} updated"
+        )
+
+        return {
+            "venue_id": venue_id_str,
+            "status": "success",
+            **result,
+        }
+
+    except Exception as e:
+        logger.exception(f"❌ ETL processing failed for venue {venue_id_str}: {e}")
+        return {
+            "venue_id": venue_id_str,
+            "status": "failed",
+            "events_processed": 0,
+            "events_new": 0,
+            "events_updated": 0,
+            "events_skipped": len(raw_events),
+            "errors": [str(e)],
+        }

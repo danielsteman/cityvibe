@@ -192,8 +192,9 @@ class DebuikScraper(BaseScraper):
         sidebar = soup.select_one(".restaurant-contactvlak")
         if sidebar:
             for a in sidebar.find_all("a", href=True):
-                if "website" in a.get_text().lower() and "debuik.nl" not in a["href"]:
-                    external_website = a["href"]
+                href_value = str(a["href"])
+                if "website" in a.get_text().lower() and "debuik.nl" not in href_value:
+                    external_website = href_value
                     break
 
         final_url = external_website if external_website else url

@@ -1,1 +1,1 @@
-"""Celery tasks for workers."""
+"""Celery tasks for workers service."""

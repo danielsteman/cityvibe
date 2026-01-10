@@ -20,9 +20,15 @@ if [ ! -f ".sops.yaml" ]; then
     exit 1
 fi
 
+# Check for Age key file and set environment variable if found
+if [ -f "$HOME/.sops-age-key" ]; then
+    export SOPS_AGE_KEY_FILE="$HOME/.sops-age-key"
+fi
+
 echo "🔐 Encrypting .env to .env.encrypted..."
 
-sops -e .env > .env.encrypted
+# Use explicit dotenv output type for .env files
+sops -e --output-type dotenv .env > .env.encrypted
 
 if [ $? -eq 0 ]; then
     echo "✅ Successfully encrypted .env to .env.encrypted"

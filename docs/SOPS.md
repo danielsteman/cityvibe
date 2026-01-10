@@ -82,7 +82,7 @@ The encrypted file (`.env.encrypted`) can be safely committed to git.
 sops -d .env.encrypted > .env
 
 # Or use the helper script
-./scripts/decrypt-env.sh
+./infrastructure/scripts/decrypt-env.sh
 ```
 
 **Note**: The decrypted `.env` file is in `.gitignore` and should never be committed.

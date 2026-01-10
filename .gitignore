@@ -45,7 +45,7 @@ uv.lock
 
 # SOPS encrypted files - keep encrypted version in repo, ignore decrypted
 # The encrypted .env file should be committed: .env.encrypted
-.env.encrypted
+# Note: .env.encrypted is NOT ignored - it should be committed to git
 .env.sops
 
 # Testing

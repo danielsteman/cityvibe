@@ -3,11 +3,7 @@ name = "cityvibe-etl"
 version = "0.1.0"
 description = "ETL pipeline for processing and enriching events"
 requires-python = ">=3.13"
-dependencies = [
-    "cityvibe-core",
-    "cityvibe-common",
-    "pandas>=2.0.0",
-]
+dependencies = ["cityvibe-core", "cityvibe-common", "pandas>=2.0.0"]
 
 [tool.uv.sources]
 cityvibe-core = { workspace = true }

@@ -2,17 +2,17 @@
 
 import json
 import xml.etree.ElementTree as ET
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 from bs4 import BeautifulSoup
+from cityvibe_core.models.venue import OpeningHours, VenueLink
+from deep_translator import GoogleTranslator
 from geoalchemy2 import WKTElement
 from loguru import logger
 
-from cityvibe_core.models.venue import OpeningHours, VenueLink
 from workers.scrapers.base import BaseScraper
-from deep_translator import GoogleTranslator
 
 # Initialize translator
 translator = GoogleTranslator(source="nl", target="en")
@@ -56,9 +56,7 @@ class IamsterdamScraper(BaseScraper):
 
         return text
 
-    def _convert_business_hours_to_opening_hours(
-        self, business_hours: dict
-    ) -> list[OpeningHours]:
+    def _convert_business_hours_to_opening_hours(self, business_hours: dict) -> list[OpeningHours]:
         """
         Convert iamsterdam businessHours format to OpeningHours objects.
 
@@ -295,9 +293,7 @@ class IamsterdamScraper(BaseScraper):
             # Strip HTML tags for plain text description
             soup = BeautifulSoup(description_html, "html.parser")
             description_text = soup.get_text(separator=" ", strip=True)
-            description_text = (
-                self._translate_text(description_text) if description_text else None
-            )
+            description_text = self._translate_text(description_text) if description_text else None
 
         # Extract venue type from category
         categories = loc.get("category") or []
@@ -307,9 +303,7 @@ class IamsterdamScraper(BaseScraper):
         if venue_type:
             # Handle dict category format (iamsterdam sometimes uses dicts)
             if isinstance(venue_type, dict):
-                venue_type = (
-                    venue_type.get("title") or venue_type.get("name") or None
-                )
+                venue_type = venue_type.get("title") or venue_type.get("name") or None
             if venue_type:
                 venue_type = self._translate_text(str(venue_type))
 
@@ -415,4 +409,3 @@ class IamsterdamScraper(BaseScraper):
             "last_scraped_at": datetime.now(UTC),
             "active": True,
         }
-

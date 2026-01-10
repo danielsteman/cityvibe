@@ -1,18 +1,17 @@
 """Debuik scraper for extracting venue data."""
 
 import re
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
-from datetime import datetime, UTC
-from typing import Optional
 
 from bs4 import BeautifulSoup
+from cityvibe_core.models.venue import OpeningHours, VenueLink
+from deep_translator import GoogleTranslator
 from geoalchemy2 import WKTElement
 from loguru import logger
 from playwright.async_api import async_playwright
 
-from cityvibe_core.models.venue import OpeningHours, VenueLink
 from workers.scrapers.base import BaseScraper
-from deep_translator import GoogleTranslator
 
 # Initialize translator
 translator = GoogleTranslator(source="nl", target="en")
@@ -90,8 +89,7 @@ class DebuikScraper(BaseScraper):
                 translated_value = self._translate_text(value)
             elif isinstance(value, list):
                 translated_value = [
-                    self._translate_text(str(v)) if isinstance(v, str) else v
-                    for v in value
+                    self._translate_text(str(v)) if isinstance(v, str) else v for v in value
                 ]
             elif isinstance(value, dict):
                 translated_value = self._translate_dict_keys_values(value)
@@ -169,20 +167,10 @@ class DebuikScraper(BaseScraper):
 
         # Translate content from Dutch to English
         logger.info("🌐 Translating content from Dutch to English...")
-        translated_description = (
-            self._translate_text(description) if description else None
-        )
-        translated_tags = (
-            [self._translate_text(tag) for tag in tags] if tags else []
-        )
-        translated_features = (
-            self._translate_dict_keys_values(raw_features)
-            if raw_features
-            else {}
-        )
-        translated_venue_type = (
-            self._translate_text(venue_type) if venue_type else None
-        )
+        translated_description = self._translate_text(description) if description else None
+        translated_tags = [self._translate_text(tag) for tag in tags] if tags else []
+        translated_features = self._translate_dict_keys_values(raw_features) if raw_features else {}
+        translated_venue_type = self._translate_text(venue_type) if venue_type else None
 
         # Standardize opening hours to OpeningHours objects
         structured_hours = []
@@ -195,9 +183,7 @@ class DebuikScraper(BaseScraper):
             else:
                 try:
                     start, end = d_time.split(" - ")
-                    structured_hours.append(
-                        OpeningHours(day=eng_day, opens=start, closes=end)
-                    )
+                    structured_hours.append(OpeningHours(day=eng_day, opens=start, closes=end))
                 except Exception:
                     structured_hours.append(OpeningHours(day=eng_day, is_closed=True))
 
@@ -314,7 +300,7 @@ class DebuikScraper(BaseScraper):
 
         return info
 
-    def _extract_description(self, soup: BeautifulSoup) -> Optional[str]:
+    def _extract_description(self, soup: BeautifulSoup) -> str | None:
         """
         Extract venue description from the page.
 
@@ -329,7 +315,7 @@ class DebuikScraper(BaseScraper):
             return intro.get_text(separator=" ", strip=True)
         return None
 
-    def _extract_image(self, soup: BeautifulSoup) -> Optional[str]:
+    def _extract_image(self, soup: BeautifulSoup) -> str | None:
         """
         Extract venue image URL from the page.
 
@@ -353,7 +339,7 @@ class DebuikScraper(BaseScraper):
                 return src
         return None
 
-    def _extract_lat_lon(self, soup: BeautifulSoup) -> tuple[Optional[Decimal], Optional[Decimal]]:
+    def _extract_lat_lon(self, soup: BeautifulSoup) -> tuple[Decimal | None, Decimal | None]:
         """
         Extract latitude and longitude from Google Maps images in the HTML.
 

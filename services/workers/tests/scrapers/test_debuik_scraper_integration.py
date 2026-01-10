@@ -61,16 +61,12 @@ class TestDebuikScraperIntegration:
             if "latitude" in venue_data and venue_data["latitude"] is not None:
                 from decimal import Decimal
 
-                assert isinstance(
-                    venue_data["latitude"], Decimal
-                ), "latitude should be a Decimal"
+                assert isinstance(venue_data["latitude"], Decimal), "latitude should be a Decimal"
 
             if "longitude" in venue_data and venue_data["longitude"] is not None:
                 from decimal import Decimal
 
-                assert isinstance(
-                    venue_data["longitude"], Decimal
-                ), "longitude should be a Decimal"
+                assert isinstance(venue_data["longitude"], Decimal), "longitude should be a Decimal"
 
         # Log results for debugging
         logger.info(f"Scraped {len(venues)} venues from Debuik")

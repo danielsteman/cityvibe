@@ -4,11 +4,7 @@ version = "0.1.0"
 description = "City Vibe - Event aggregation and discovery platform"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = [
-    "cityvibe-core",
-    "cityvibe-common",
-    "cityvibe-etl",
-]
+dependencies = ["cityvibe-core", "cityvibe-common", "cityvibe-etl", "workers"]
 
 [tool.uv.workspace]
 members = ["packages/*", "services/*"]
@@ -17,6 +13,7 @@ members = ["packages/*", "services/*"]
 cityvibe-core = { workspace = true }
 cityvibe-common = { workspace = true }
 cityvibe-etl = { workspace = true }
+workers = { workspace = true }
 
 [dependency-groups]
 dev = [

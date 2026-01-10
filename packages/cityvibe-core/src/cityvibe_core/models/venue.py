@@ -1,16 +1,14 @@
 """Venue model using SQLModel."""
 
 from datetime import datetime
-from decimal import Decimal
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Column
+from sqlalchemy import Column, DateTime, func
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlmodel import Field, SQLModel
-
-from cityvibe_core.models.base import TimestampMixin, UUIDMixin
 
 
 class OpeningHours(SQLModel):
@@ -53,14 +51,27 @@ class VenueBase(SQLModel):
     features: dict[str, Any] = Field(default={}, sa_column=Column(JSONB))
 
 
-class Venue(VenueBase, UUIDMixin, TimestampMixin, table=True):
+class Venue(VenueBase, table=True):
     """The physical table in the Neon Postgres DB."""
 
+    id: UUID = Field(
+        default_factory=uuid4,
+        sa_column=Column(PG_UUID(as_uuid=True), primary_key=True, nullable=False),
+    )
+    created_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True), server_default=func.now(), nullable=False
+        ),
+    )
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), onupdate=func.now(), nullable=True),
+    )
     # PostGIS Location Column (order is Lon, Lat)
     location: Any = Field(
         sa_column=Column(
             Geometry(geometry_type="POINT", srid=4326, spatial_index=True),
-            nullable=False
+            nullable=False,
         )
     )
     scraper_config: dict[str, Any] | None = Field(

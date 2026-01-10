@@ -18,7 +18,10 @@ sys.path.insert(
 # Import all models so SQLModel.metadata is populated
 # Import must happen after sys.path modification
 from cityvibe_core.database.connection import get_database_url
-from cityvibe_core.models import Venue  # noqa: F401
+from cityvibe_core.models import (
+    Event,  # noqa: F401
+    Venue,  # noqa: F401
+)
 
 # This is the Alembic Config object
 config = context.config

@@ -13,12 +13,15 @@ class EventBase(SQLModel):
 
     name: str = Field(max_length=255, index=True)
     description: str | None = Field(default=None)
-    start_date: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), nullable=False, index=True)
+    event_date: date = Field(
+        sa_column=Column(Date, nullable=False, index=True)
     )
-    end_date: datetime | None = Field(
+    start_time: time = Field(
+        sa_column=Column(Time, nullable=False)
+    )
+    end_time: time | None = Field(
         default=None,
-        sa_column=Column(DateTime(timezone=True), nullable=True, index=True),
+        sa_column=Column(Time, nullable=True)
     )
     venue_id: UUID = Field(foreign_key="venue.id", index=True)
 

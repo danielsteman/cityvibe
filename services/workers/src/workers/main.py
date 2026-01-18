@@ -28,6 +28,10 @@ celery_app.conf.update(
 # This ensures tasks are discovered by Celery
 try:
     from workers.tasks.etl.process_events import process_events_task  # noqa: F401
+    from workers.tasks.scraping.scrape_source import (  # noqa: F401
+        scrape_debuik_source_task,
+        scrape_iamsterdam_source_task,
+    )
     from workers.tasks.scraping.scrape_venue import (  # noqa: F401
         scrape_venue_task,
         scrape_venues_batch_task,

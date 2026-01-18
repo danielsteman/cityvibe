@@ -56,12 +56,14 @@ class IamsterdamScraper(BaseScraper):
 
         return text
 
-    def _convert_business_hours_to_opening_hours(self, business_hours: dict) -> list[OpeningHours]:
+    def _convert_business_hours_to_opening_hours(
+        self, business_hours: dict | list
+    ) -> list[OpeningHours]:
         """
         Convert iamsterdam businessHours format to OpeningHours objects.
 
         Args:
-            business_hours: Dictionary with business hours data
+            business_hours: Dictionary with business hours data, or list of day hours
 
         Returns:
             List of OpeningHours objects
@@ -71,7 +73,7 @@ class IamsterdamScraper(BaseScraper):
         if not business_hours:
             return opening_hours_list
 
-        # Day name mapping
+        # Day name mapping (uppercase to lowercase)
         day_mapping = {
             "monday": "monday",
             "tuesday": "tuesday",
@@ -89,31 +91,55 @@ class IamsterdamScraper(BaseScraper):
             "zondag": "sunday",
         }
 
-        regular_hours = business_hours.get("regularHours") or []
-        if not isinstance(regular_hours, list):
-            regular_hours = []
+        # Handle both list format (direct) and dict format (nested under regularHours)
+        if isinstance(business_hours, list):
+            hours_list = business_hours
+        elif isinstance(business_hours, dict):
+            hours_list = business_hours.get("regularHours") or []
+        else:
+            return opening_hours_list
 
-        for day_data in regular_hours:
-            day_name = day_data.get("day", "").lower()
-            eng_day = day_mapping.get(day_name, day_name) or "monday"
+        if not isinstance(hours_list, list):
+            return opening_hours_list
 
-            if day_data.get("closed") or day_data.get("isClosed"):
+        for day_data in hours_list:
+            if not isinstance(day_data, dict):
+                continue
+
+            # Try new format first: openDay, openTime, closeTime
+            day_name = day_data.get("openDay") or day_data.get("day", "")
+            if not day_name:
+                continue
+
+            eng_day = day_mapping.get(day_name.lower(), day_name.lower())
+
+            # Check if closed
+            is_closed = day_data.get("isClosed") or day_data.get("closed", False)
+            if is_closed:
                 opening_hours_list.append(OpeningHours(day=eng_day, is_closed=True))
             else:
-                opens = day_data.get("opens") or day_data.get("open")
-                closes = day_data.get("closes") or day_data.get("close")
-                if opens and closes:
+                # Try new format: openTime/closeTime
+                open_time = day_data.get("openTime") or day_data.get("opens") or day_data.get("open")
+                close_time = (
+                    day_data.get("closeTime") or day_data.get("closes") or day_data.get("close")
+                )
+
+                if open_time and close_time:
                     opening_hours_list.append(
-                        OpeningHours(day=eng_day, opens=str(opens), closes=str(closes))
+                        OpeningHours(day=eng_day, opens=str(open_time), closes=str(close_time))
                     )
                 else:
                     opening_hours_list.append(OpeningHours(day=eng_day, is_closed=True))
 
         return opening_hours_list
 
-    async def scrape(self) -> list[dict]:
+    async def scrape(self, limit: int | None = None) -> list[dict]:
         """
         Extract venue data from Iamsterdam by discovering URLs from sitemap and scraping them.
+
+        Args:
+            limit: Optional limit on number of URLs to scrape (for testing).
+                   If None, scrapes all discovered URLs.
 
         Returns:
             List of venue dictionaries matching Venue model structure.
@@ -127,6 +153,11 @@ class IamsterdamScraper(BaseScraper):
         if not venue_urls:
             logger.warning("⚠️ No venue URLs found in sitemap")
             return []
+
+        # Apply limit if specified (for testing)
+        if limit is not None and limit > 0:
+            logger.info(f"🔢 Limiting to {limit} URLs for scraping")
+            venue_urls = venue_urls[:limit]
 
         # Scrape each URL
         results = []
@@ -274,6 +305,36 @@ class IamsterdamScraper(BaseScraper):
         if not name:
             return None
 
+        # Filter out parking events
+        # Check URL path, name, and categories for parking-related terms
+        url_lower = url.lower()
+        name_lower = name.lower()
+
+        # Check categories for filtering (parking appears under transportation -> parking)
+        categories = loc.get("category") or []
+        if not isinstance(categories, list):
+            categories = []
+        
+        # Extract all category text for filtering (handles both dict and string formats)
+        category_texts = []
+        for cat in categories:
+            if isinstance(cat, dict):
+                cat_text = cat.get("title") or cat.get("name") or cat.get("slug") or ""
+                if cat_text:
+                    category_texts.append(str(cat_text).lower())
+            elif isinstance(cat, str):
+                category_texts.append(cat.lower())
+        
+        category_text = " ".join(category_texts)
+
+        # Skip if parking-related (check URL, name, or any category)
+        parking_keywords = ["parking", "parkeer"]
+        if any(keyword in url_lower for keyword in parking_keywords) or any(
+            keyword in name_lower for keyword in parking_keywords
+        ) or any(keyword in category_text for keyword in parking_keywords):
+            logger.debug(f"🚫 Skipping parking venue: {name}")
+            return None
+
         images = loc.get("images") or []
         main_image = images[0]["src"] if images else None
 
@@ -295,10 +356,7 @@ class IamsterdamScraper(BaseScraper):
             description_text = soup.get_text(separator=" ", strip=True)
             description_text = self._translate_text(description_text) if description_text else None
 
-        # Extract venue type from category
-        categories = loc.get("category") or []
-        if not isinstance(categories, list):
-            categories = []
+        # Extract venue type from category (categories already extracted above)
         venue_type = categories[0] if categories and len(categories) > 0 else None
         if venue_type:
             # Handle dict category format (iamsterdam sometimes uses dicts)
@@ -307,10 +365,8 @@ class IamsterdamScraper(BaseScraper):
             if venue_type:
                 venue_type = self._translate_text(str(venue_type))
 
-        # Convert business hours
-        business_hours = loc.get("businessHours") or {}
-        if not isinstance(business_hours, dict):
-            business_hours = {}
+        # Convert business hours (can be dict with regularHours or list directly)
+        business_hours = loc.get("businessHours") or []
         opening_hours = self._convert_business_hours_to_opening_hours(business_hours)
 
         # Convert URLs to VenueLink objects

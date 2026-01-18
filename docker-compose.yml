@@ -14,7 +14,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init-postgis.sql:/docker-entrypoint-initdb.d/01-init-postgis.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,17 +29,66 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - cityvibe-network
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: cityvibe-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@cityvibe.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cityvibe-network
+
+  embeddings:
+    build:
+      context: .
+      dockerfile: Dockerfile.embeddings
+    container_name: cityvibe-embeddings
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/cityvibe}
+      DOCKER_ENV: "true"
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - ./packages:/app/packages:ro
+      - ./services/workers:/app/services/workers:ro
+      - embeddings_cache:/root/.cache/huggingface
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cityvibe-network
+    profiles:
+      - embeddings
+    # Note: Threading issues may occur on macOS Docker Desktop
+    # These workarounds help but may not fully resolve macOS limitations
+    # Production (Linux) environments won't have these issues
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  embeddings_cache:
     driver: local
 
 networks:

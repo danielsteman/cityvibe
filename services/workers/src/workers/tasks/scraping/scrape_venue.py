@@ -5,6 +5,7 @@ from uuid import UUID
 from celery import shared_task
 from cityvibe_core.database.connection import init_db
 from cityvibe_core.database.session import get_session
+from cityvibe_core.embeddings import generate_vibe_text, get_embeddings
 from cityvibe_core.models.venue import Venue
 from loguru import logger
 from sqlalchemy import select
@@ -92,29 +93,70 @@ async def scrape_venue_task(venue_id: str | UUID) -> dict:
                     "error": "Venue with same website_url already exists",
                 }
 
+            # Initialize embeddings model (lazy-loaded, cached) - optional
+            # If sentence-transformers is not available, embeddings will be skipped
+            embeddings_model = None
+            try:
+                embeddings_model = get_embeddings()
+                logger.debug("✅ Embeddings model available")
+            except Exception as e:
+                logger.warning(
+                    f"⚠️ Embeddings model not available: {e}. "
+                    f"Venue will be saved without embeddings."
+                )
+
             # Update existing venue or create new one
+            venue_obj = None
+            needs_embedding = False
+
             if existing_venue:
                 logger.info(f"🔄 Updating existing venue: {existing_venue.name}")
                 for key, value in scraped_data.items():
                     if hasattr(existing_venue, key):
                         setattr(existing_venue, key, value)
-                await session.commit()
-                logger.info(f"✅ Successfully updated venue: {existing_venue.name}")
-                return {
-                    "venue_id": str(existing_venue.id),
-                    "venue_name": existing_venue.name,
-                    "status": "success",
-                    "error": None,
-                }
+                venue_obj = existing_venue
+                # Check if embedding is missing or if we should regenerate
+                needs_embedding = not existing_venue.vibe_embedding
+            else:
+                logger.info(f"✨ Creating new venue: {scraped_data.get('name', 'Unknown')}")
+                new_venue = Venue(**scraped_data)
+                session.add(new_venue)
+                venue_obj = new_venue
+                needs_embedding = True  # New venues always need embeddings
 
-            logger.info(f"✨ Creating new venue: {scraped_data.get('name', 'Unknown')}")
-            new_venue = Venue(**scraped_data)
-            session.add(new_venue)
+            # Generate embedding if needed and model is available
+            if needs_embedding and venue_obj and embeddings_model:
+                try:
+                    # Generate vibe text from venue data
+                    vibe_text = generate_vibe_text(venue_obj)
+                    if vibe_text and vibe_text.strip():
+                        logger.debug(f"📊 Generating embedding for venue: {venue_obj.name}")
+                        # Generate embedding (synchronous operation)
+                        embedding = embeddings_model.embed_query(vibe_text)
+                        if embedding:
+                            venue_obj.vibe_embedding = embedding
+                            logger.debug(f"✅ Generated embedding for venue: {venue_obj.name}")
+                        else:
+                            logger.warning(
+                                f"⚠️ Empty embedding generated for venue: {venue_obj.name}"
+                            )
+                    else:
+                        logger.warning(f"⚠️ Empty vibe text for venue: {venue_obj.name}")
+                except Exception as e:
+                    logger.error(
+                        f"❌ Failed to generate embedding for venue {venue_obj.name}: {e}"
+                    )
+                    # Continue without embedding - venue will still be saved
+            elif needs_embedding and not embeddings_model:
+                logger.debug(f"⏭️ Skipping embedding for venue {venue_obj.name} (embeddings not available)")
+
             await session.commit()
-            logger.info(f"✅ Successfully created venue: {new_venue.name}")
+
+            action = "updated" if existing_venue else "created"
+            logger.info(f"✅ Successfully {action} venue: {venue_obj.name}")
             return {
-                "venue_id": str(new_venue.id),
-                "venue_name": new_venue.name,
+                "venue_id": str(venue_obj.id),
+                "venue_name": venue_obj.name,
                 "status": "success",
                 "error": None,
             }

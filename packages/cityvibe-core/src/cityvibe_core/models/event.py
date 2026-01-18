@@ -1,9 +1,9 @@
 """Event model using SQLModel."""
 
-from datetime import datetime
+from datetime import date, datetime, time
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime, func
+from sqlalchemy import Column, Date, DateTime, Time, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlmodel import Field, SQLModel
 

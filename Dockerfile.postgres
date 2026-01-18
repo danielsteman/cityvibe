@@ -1,12 +1,10 @@
-FROM postgres:15
+FROM postgis/postgis:15-3.4
 
-# Install PostGIS and dependencies
+# Install pgvector extension
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    postgis \
-    postgresql-15-postgis-3 \
-    postgresql-15-postgis-3-scripts && \
+    postgresql-15-pgvector && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy init script
+# Copy init script (PostGIS and pgvector are now available)
 COPY init-postgis.sql /docker-entrypoint-initdb.d/01-init-postgis.sql

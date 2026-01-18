@@ -12,6 +12,8 @@ dependencies = [
     "psycopg2-binary>=2.9.0",
     "geoalchemy2>=0.14.0",
     "loguru>=0.7.0",
+    "pgvector>=0.3.0",
+    "langchain-huggingface>=0.0.3",
 ]
 
 [tool.uv.sources]

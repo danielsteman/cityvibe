@@ -1,0 +1,50 @@
+# Dockerfile for embedding generation service using Python 3.12
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    ; rm -rf /var/lib/apt/lists/* || true
+
+# Install PyTorch CPU version (compatible with Python 3.12)
+# Use PIP_NO_DEPS to avoid threading issues and install in smaller chunks
+ENV PIP_NO_DEPS=false
+RUN pip install --no-cache-dir --quiet \
+    torch \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# Install core dependencies first
+RUN pip install --no-cache-dir --quiet \
+    sqlalchemy>=2.0.0 \
+    sqlmodel>=0.0.14 \
+    asyncpg>=0.29.0 \
+    psycopg2-binary>=2.9.0 \
+    loguru>=0.7.0
+
+# Install embedding dependencies (transformers is required by langchain-huggingface)
+RUN pip install --no-cache-dir --quiet \
+    transformers \
+    sentence-transformers \
+    langchain-huggingface
+
+# Install remaining dependencies
+RUN pip install --no-cache-dir --quiet \
+    geoalchemy2>=0.14.0 \
+    pgvector>=0.3.0
+
+# Copy workspace files (scripts, packages)
+COPY scripts/ ./scripts/
+COPY packages/ ./packages/
+
+# Set Python path for imports
+ENV PYTHONPATH=/app/packages/cityvibe-core/src:$PYTHONPATH
+
+# Set OpenBLAS to single thread to avoid threading issues in Docker
+ENV OPENBLAS_NUM_THREADS=1
+
+# Default command (can be overridden)
+CMD ["python", "scripts/generate_embeddings.py"]

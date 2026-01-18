@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from geoalchemy2 import Geometry
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import Column, DateTime, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -79,6 +80,9 @@ class Venue(VenueBase, table=True):
     )
     last_scraped_at: datetime | None = Field(default=None, index=True)
     source: str = Field(default="debuik", index=True)
+    vibe_embedding: list[float] | None = Field(
+        default=None, sa_column=Column(Vector(1024), nullable=True)
+    )
 
 
 class VenueCreate(VenueBase):

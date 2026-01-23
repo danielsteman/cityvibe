@@ -1,0 +1,10 @@
+[project]
+name = "embeddings-api"
+version = "0.1.0"
+description = "Embeddings API service for CityVibe (Docker-only service)"
+requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -13,14 +13,21 @@ from agents.state import AgentState
 from loguru import logger
 
 # Load environment variables from .env file if it exists
-env_path = Path(__file__).parent / ".env"
-if env_path.exists():
-    load_dotenv(env_path)
-else:
-    # Try loading from project root
-    root_env = Path(__file__).parent.parent.parent / ".env"
-    if root_env.exists():
-        load_dotenv(root_env)
+# Walk up directory tree to find project root (has .env file)
+try:
+    current_path = Path(__file__).parent
+    project_root = None
+    
+    # Walk up directory tree to find project root (has .env file)
+    for parent in [current_path] + list(current_path.parents):
+        env_file = parent / ".env"
+        if env_file.exists():
+            project_root = parent
+            load_dotenv(env_file)
+            logger.debug(f"📁 Loaded environment variables from {env_file}")
+            break
+except Exception as e:
+    logger.debug(f"⚠️ Could not load .env file: {e}")
 
 
 def create_test_state(
@@ -93,12 +100,10 @@ def test_scenario(
 
 def main():
     """Run test scenarios for the gastronomist agent."""
-    # Check for required environment variables
-    if not os.getenv("OPENAI_API_KEY"):
-        logger.error("❌ OPENAI_API_KEY environment variable is not set")
-        logger.info("💡 Set it with: export OPENAI_API_KEY='your-key-here'")
-        sys.exit(1)
-
+    logger.info("ℹ️  Using Ollama (Llama 3.1) for generation")
+    logger.info("ℹ️  Using Mixedbread AI (mxbai-embed-large-v1) for embeddings")
+    logger.info("ℹ️  Ensure Ollama is running (locally or via Docker)")
+    
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
         logger.warning(

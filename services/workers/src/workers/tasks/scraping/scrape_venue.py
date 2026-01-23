@@ -9,6 +9,7 @@ from cityvibe_core.embeddings import generate_vibe_text, get_embeddings
 from cityvibe_core.models.venue import Venue
 from loguru import logger
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 
 from workers.scrapers.debuik_batch_scraper import DebuikScraper
 
@@ -73,18 +74,28 @@ async def scrape_venue_task(venue_id: str | UUID) -> dict:
                 }
 
             # For venue scraping, we get venue data (not events)
-            # Update venue in database
+            # Update venue in database using PostgreSQL native upsert
             scraped_data = scraped_data_list[0]
 
-            # Check if venue already exists by website_url
-            result = await session.execute(
-                select(Venue).where(Venue.website_url == scraped_data["website_url"])
-            )
-            existing_venue = result.scalar_one_or_none()
+            website_url = scraped_data.get("website_url")
+            if not website_url:
+                logger.error("❌ Scraped data missing website_url")
+                return {
+                    "venue_id": venue_id_str,
+                    "venue_name": venue.name,
+                    "status": "failed",
+                    "error": "Scraped data missing website_url",
+                }
 
-            if existing_venue and existing_venue.id != venue.id:
+            # Check if venue already exists by website_url (for validation)
+            result = await session.execute(
+                select(Venue.id).where(Venue.website_url == website_url)
+            )
+            existing_venue_id = result.scalar_one_or_none()
+
+            if existing_venue_id and existing_venue_id != venue.id:
                 logger.warning(
-                    f"⚠️ Venue with website_url {scraped_data['website_url']} already exists"
+                    f"⚠️ Venue with website_url {website_url} already exists with different ID"
                 )
                 return {
                     "venue_id": venue_id_str,
@@ -93,8 +104,66 @@ async def scrape_venue_task(venue_id: str | UUID) -> dict:
                     "error": "Venue with same website_url already exists",
                 }
 
+            # Check if venue exists and has embedding before upsert
+            result = await session.execute(
+                select(Venue.id, Venue.vibe_embedding).where(
+                    Venue.website_url == website_url
+                )
+            )
+            existing_row = result.first()
+            was_existing = existing_row is not None
+            existing_embedding = existing_row[1] if existing_row else None
+
+            # Prepare data for insert (exclude id, created_at, updated_at, vibe_embedding)
+            insert_data = {
+                k: v
+                for k, v in scraped_data.items()
+                if k not in ("id", "created_at", "updated_at", "vibe_embedding")
+            }
+
+            # Use PostgreSQL native UPSERT with ON CONFLICT DO UPDATE
+            # Preserve vibe_embedding if it already exists
+            update_dict = {
+                k: v
+                for k, v in insert_data.items()
+                if k != "website_url"  # Don't update the conflict key
+            }
+            # Preserve existing vibe_embedding on conflict
+            update_dict["vibe_embedding"] = Venue.__table__.c.vibe_embedding
+
+            stmt = (
+                insert(Venue.__table__)
+                .values(**insert_data)
+                .on_conflict_do_update(
+                    index_elements=["website_url"],
+                    set_=update_dict,
+                )
+                .returning(Venue.__table__.c.id, Venue.__table__.c.vibe_embedding)
+            )
+
+            # Execute upsert and get the returned row
+            result = await session.execute(stmt)
+            upserted_row = result.first()
+            upserted_venue_id = upserted_row[0] if upserted_row else None
+            current_embedding = upserted_row[1] if upserted_row else None
+
+            if not upserted_venue_id:
+                logger.error(f"❌ Failed to upsert venue: {website_url}")
+                return {
+                    "venue_id": venue_id_str,
+                    "venue_name": venue.name,
+                    "status": "failed",
+                    "error": "Failed to upsert venue",
+                }
+
+            # Commit the upsert first
+            await session.commit()
+
+            # Track action
+            action = "updated" if was_existing else "created"
+            logger.info(f"✅ Successfully {action} venue: {scraped_data.get('name', 'Unknown')}")
+
             # Initialize embeddings model (lazy-loaded, cached) - optional
-            # If sentence-transformers is not available, embeddings will be skipped
             embeddings_model = None
             try:
                 embeddings_model = get_embeddings()
@@ -105,55 +174,59 @@ async def scrape_venue_task(venue_id: str | UUID) -> dict:
                     f"Venue will be saved without embeddings."
                 )
 
-            # Update existing venue or create new one
-            venue_obj = None
-            needs_embedding = False
-
-            if existing_venue:
-                logger.info(f"🔄 Updating existing venue: {existing_venue.name}")
-                for key, value in scraped_data.items():
-                    if hasattr(existing_venue, key):
-                        setattr(existing_venue, key, value)
-                venue_obj = existing_venue
-                # Check if embedding is missing or if we should regenerate
-                needs_embedding = not existing_venue.vibe_embedding
-            else:
-                logger.info(f"✨ Creating new venue: {scraped_data.get('name', 'Unknown')}")
-                new_venue = Venue(**scraped_data)
-                session.add(new_venue)
-                venue_obj = new_venue
-                needs_embedding = True  # New venues always need embeddings
+            # Check if embedding is needed
+            needs_embedding = current_embedding is None
 
             # Generate embedding if needed and model is available
-            if needs_embedding and venue_obj and embeddings_model:
+            if needs_embedding and embeddings_model:
                 try:
-                    # Generate vibe text from venue data
-                    vibe_text = generate_vibe_text(venue_obj)
-                    if vibe_text and vibe_text.strip():
-                        logger.debug(f"📊 Generating embedding for venue: {venue_obj.name}")
-                        # Generate embedding (synchronous operation)
-                        embedding = embeddings_model.embed_query(vibe_text)
-                        if embedding:
-                            venue_obj.vibe_embedding = embedding
-                            logger.debug(f"✅ Generated embedding for venue: {venue_obj.name}")
-                        else:
-                            logger.warning(
-                                f"⚠️ Empty embedding generated for venue: {venue_obj.name}"
-                            )
+                    # Fetch the full venue object for embedding generation
+                    venue_obj = await session.get(Venue, upserted_venue_id)
+                    if not venue_obj:
+                        logger.warning(
+                            f"⚠️ Could not fetch venue {upserted_venue_id} for embedding"
+                        )
                     else:
-                        logger.warning(f"⚠️ Empty vibe text for venue: {venue_obj.name}")
+                        # Generate vibe text from venue data
+                        vibe_text = generate_vibe_text(venue_obj)
+                        if vibe_text and vibe_text.strip():
+                            logger.debug(
+                                f"📊 Generating embedding for venue: {venue_obj.name}"
+                            )
+                            # Generate embedding (synchronous operation)
+                            embedding = embeddings_model.embed_query(vibe_text)
+                            if embedding:
+                                venue_obj.vibe_embedding = embedding
+                                await session.commit()
+                                logger.debug(
+                                    f"✅ Generated embedding for venue: {venue_obj.name}"
+                                )
+                            else:
+                                logger.warning(
+                                    f"⚠️ Empty embedding generated for venue: {venue_obj.name}"
+                                )
+                        else:
+                            logger.warning(f"⚠️ Empty vibe text for venue: {venue_obj.name}")
                 except Exception as e:
                     logger.error(
-                        f"❌ Failed to generate embedding for venue {venue_obj.name}: {e}"
+                        f"❌ Failed to generate embedding for venue {upserted_venue_id}: {e}"
                     )
                     # Continue without embedding - venue will still be saved
             elif needs_embedding and not embeddings_model:
-                logger.debug(f"⏭️ Skipping embedding for venue {venue_obj.name} (embeddings not available)")
+                logger.debug(
+                    f"⏭️ Skipping embedding for venue {upserted_venue_id} (embeddings not available)"
+                )
 
-            await session.commit()
+            # Fetch venue for return value
+            venue_obj = await session.get(Venue, upserted_venue_id)
+            if not venue_obj:
+                return {
+                    "venue_id": venue_id_str,
+                    "venue_name": venue.name,
+                    "status": "failed",
+                    "error": "Could not fetch upserted venue",
+                }
 
-            action = "updated" if existing_venue else "created"
-            logger.info(f"✅ Successfully {action} venue: {venue_obj.name}")
             return {
                 "venue_id": str(venue_obj.id),
                 "venue_name": venue_obj.name,

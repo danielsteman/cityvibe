@@ -41,7 +41,8 @@ jobs:
         run: |
           pip install torch sentence-transformers langchain-huggingface \
             sqlalchemy sqlmodel asyncpg psycopg2-binary \
-            geoalchemy2 loguru pgvector --index-url https://download.pytorch.org/whl/cpu
+            geoalchemy2 loguru pgvector \
+            --extra-index-url https://download.pytorch.org/whl/cpu
       
       - name: Install project dependencies
         run: |

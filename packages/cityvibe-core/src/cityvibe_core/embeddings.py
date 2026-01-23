@@ -143,44 +143,41 @@ def generate_vibe_text(venue: dict[str, Any] | Any) -> str:
     Generate dense vibe text from venue data for embedding.
 
     Creates a structured text string containing venue name, category, description,
-    and tags that will be embedded for semantic search.
+    and tags that will be embedded for semantic search. Prioritizes Identity >
+    Category > Tags > Short Description.
 
     Args:
         venue: Venue dictionary or SQLModel instance with venue data.
                Expected fields: name, venue_type (category), description, tags
 
     Returns:
-        Dense vibe text string for embedding
+        Dense vibe text string for embedding in format:
+        "Name: {name}. Category: {category}. Vibe: {tags}. Description: {description}"
     """
     # Extract fields from dict or object
     if isinstance(venue, dict):
-        name = venue.get("name", "")
-        category = venue.get("venue_type") or venue.get("category")
-        description = venue.get("description")
+        name = venue.get("name", "Unknown")
+        # venue_type like 'Delicatessen' or 'Restaurant'
+        category = venue.get("venue_type") or venue.get("category", "Venue")
+        # Take only the first 200 characters of description to avoid 'biography' noise
+        description = venue.get("description", "")[:200]
+        # Join tags like 'Italian, Cozy, Romantic'
         tags = venue.get("tags", [])
+        tags_str = ", ".join(tags) if tags else "general"
     else:
         # SQLModel instance
-        name = getattr(venue, "name", "") or ""
-        category = getattr(venue, "venue_type", None) or getattr(venue, "category", None)
-        description = getattr(venue, "description", None)
+        name = getattr(venue, "name", "Unknown") or "Unknown"
+        # venue_type like 'Delicatessen' or 'Restaurant'
+        category = (
+            getattr(venue, "venue_type", None)
+            or getattr(venue, "category", None)
+            or "Venue"
+        )
+        # Take only the first 200 characters of description to avoid 'biography' noise
+        description = (getattr(venue, "description", None) or "")[:200]
+        # Join tags like 'Italian, Cozy, Romantic'
         tags = getattr(venue, "tags", []) or []
+        tags_str = ", ".join(tags) if tags else "general"
 
-    # Build vibe text components
-    parts = [f"Name: {name}"]
-
-    if category:
-        parts.append(f"Category: {category}")
-
-    if description:
-        # Strip any HTML tags and normalize whitespace
-        desc_clean = " ".join(description.split())
-        parts.append(f"Description: {desc_clean}")
-
-    if tags and isinstance(tags, list) and len(tags) > 0:
-        tags_str = ", ".join(str(tag) for tag in tags if tag)
-        if tags_str:
-            parts.append(f"Tags: {tags_str}")
-
-    vibe_text = ". ".join(parts) + "."
-
-    return vibe_text
+    # The format specifically designed for retrieval models
+    return f"Name: {name}. Category: {category}. Vibe: {tags_str}. Description: {description}"

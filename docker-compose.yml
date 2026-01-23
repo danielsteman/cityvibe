@@ -81,6 +81,59 @@ services:
     # These workarounds help but may not fully resolve macOS limitations
     # Production (Linux) environments won't have these issues
 
+  embeddings-api:
+    build:
+      context: .
+      dockerfile: services/embeddings-api/Dockerfile
+    container_name: cityvibe-embeddings-api
+    ports:
+      - "8001:8001"
+    environment:
+      DOCKER_ENV: "true"
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      PORT: "8001"
+    volumes:
+      - ./packages:/app/packages:ro
+      - embeddings_cache:/root/.cache/huggingface
+    networks:
+      - cityvibe-network
+    # macOS Docker Desktop workaround for pthread issues
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_PTRACE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cityvibe-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - cityvibe-network
+    environment:
+      # Limit memory usage - only keep 1 model loaded at a time
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+      # Keep models in memory for shorter time
+      OLLAMA_KEEP_ALIVE: "2m"
+    # macOS Docker Desktop workaround for pthread issues
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_PTRACE
+    # Note: For better memory management, increase Docker Desktop memory allocation
+    # Docker Desktop → Settings → Resources → Memory → Set to 4GB+
+    # Note: Model will be pulled on first use, or manually with: docker exec cityvibe-ollama ollama pull llama3.1
+
 volumes:
   postgres_data:
     driver: local
@@ -89,6 +142,8 @@ volumes:
   pgadmin_data:
     driver: local
   embeddings_cache:
+    driver: local
+  ollama_data:
     driver: local
 
 networks:

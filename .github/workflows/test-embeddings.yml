@@ -41,7 +41,7 @@ jobs:
         run: |
           pip install torch sentence-transformers langchain-huggingface \
             sqlalchemy sqlmodel asyncpg psycopg2-binary \
-            geoalchemy2 loguru pgvector \
+            geoalchemy2 loguru pgvector alembic \
             --extra-index-url https://download.pytorch.org/whl/cpu
       
       - name: Install project dependencies
@@ -54,7 +54,8 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cityvibe
           PYTHONPATH: packages/cityvibe-core/src
         run: |
-          uv run --directory packages/cityvibe-core alembic -c ../alembic.ini upgrade head
+          # Run alembic from project root where alembic.ini is located
+          python -m alembic upgrade head
       
       - name: Test embedding generation (first 2 venues)
         env:

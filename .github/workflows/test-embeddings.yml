@@ -52,9 +52,9 @@ jobs:
       - name: Run database migrations
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cityvibe
+          PYTHONPATH: packages/cityvibe-core/src
         run: |
-          cd packages/cityvibe-core
-          uv run alembic upgrade head
+          uv run --directory packages/cityvibe-core alembic -c ../alembic.ini upgrade head
       
       - name: Test embedding generation (first 2 venues)
         env:

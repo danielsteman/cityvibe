@@ -1,205 +1,173 @@
-"""Interactive chat interface for the Gastronomist agent."""
+"""Run RAG retrieval for a query and print which venues are returned.
 
+Usage:
+    uv run python chat_gastronomist.py "cozy Italian restaurant in Jordaan"
+    uv run python chat_gastronomist.py "breakfast spot" --location "de pijp" --limit 15
+
+If results are poor (e.g. wrong cuisine): embeddings include Cuisine from
+features.kitchen. Regenerate them after updating vibe text:
+
+    python scripts/generate_embeddings.py --regenerate
+    # or with limit:  python scripts/generate_embeddings.py 500 --regenerate
+"""
+
+import argparse
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
+import httpx
 from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage
-
-from agents.agents.gastronomist.node import gastronomist_node
-from agents.state import AgentState
 from loguru import logger
 
-# Load environment variables from .env file if it exists
-try:
-    current_path = Path(__file__).parent.resolve()
-    project_root = None
-    
-    # Walk up directory tree to find project root (has .env file)
-    # services/agents -> services -> project root
-    for parent in [current_path] + list(current_path.parents):
-        env_file = parent / ".env"
-        if env_file.exists() and env_file.is_file():
-            project_root = parent
-            load_dotenv(env_file, override=False)
-            logger.debug(f"📁 Loaded environment variables from {env_file}")
-            break
-    
-    if not project_root:
-        logger.warning("⚠️ Could not find .env file in parent directories")
-except Exception as e:
-    logger.debug(f"⚠️ Could not load .env file: {e}")
+from agents.agents.gastronomist.tools import find_restaurants, find_restaurants_with_rag
 
-# Configure logger for cleaner chat output
-logger.remove()
-logger.add(
-    sys.stderr,
-    format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
-    level="INFO",
-)
+# Load .env from project root
+for parent in [Path(__file__).resolve().parent] + list(Path(__file__).resolve().parents):
+    env_file = parent / ".env"
+    if env_file.is_file():
+        load_dotenv(env_file, override=False)
+        break
 
-
-def create_chat_state(user_message: str) -> AgentState:
-    """
-    Create an AgentState for chat interaction.
-
-    Args:
-        user_message: The user's message/request.
-
-    Returns:
-        AgentState configured for chat.
-    """
-    return {
-        "messages": [HumanMessage(content=user_message)],
-        "user_intent": None,
-        "final_itinerary": {},
-        "context_data": {
-            "search_anchor": None,
-            "weather": "sunny",  # Default weather
-        },
-        "next_agent": "gastronomist",
-    }
+# Amsterdam neighborhood -> (lat, lon)
+AMSTERDAM_LOCATIONS = {
+    "center": (52.3702, 4.8952),
+    "centrum": (52.3702, 4.8952),
+    "dam": (52.3729, 4.8936),
+    "de pijp": (52.3563, 4.8970),
+    "pijp": (52.3563, 4.8970),
+    "jordaan": (52.3752, 4.8806),
+    "west": (52.3718, 4.8643),
+    "oud-west": (52.3663, 4.8692),
+    "oost": (52.3619, 4.9262),
+    "east": (52.3619, 4.9262),
+    "noord": (52.3946, 4.9056),
+    "north": (52.3946, 4.9056),
+    "zuid": (52.3402, 4.8762),
+    "ndsm": (52.4005, 4.8943),
+    "museumplein": (52.3582, 4.8814),
+}
 
 
-def format_response(response: Any) -> str:
-    """
-    Format the agent's response for display.
-
-    Args:
-        response: The SubAgentResponse from the agent.
-
-    Returns:
-        Formatted string for display.
-    """
-    output = []
-    
-    if response.status == "needs_clarification":
-        if response.question:
-            output.append(f"🤔 {response.question}")
-        else:
-            output.append("🤔 Could you provide more details?")
-    
-    elif response.status == "data_found_needs_selection":
-        if response.data:
-            output.append(f"✅ Found {len(response.data)} options:\n")
-            for i, venue in enumerate(response.data, 1):
-                name = venue.get("name", "Unknown")
-                distance = venue.get("distance_meters", 0)
-                venue_type = venue.get("venue_type", "")
-                price = venue.get("price_symbol", "")
-                tags = venue.get("tags", [])
-                description = venue.get("description", "")
-                
-                output.append(f"{i}. {name} ({venue_type}) {price}")
-                if distance:
-                    output.append(f"   📍 {distance}m away")
-                if tags:
-                    output.append(f"   🏷️  {', '.join(tags[:3])}")
-                if description:
-                    desc = description[:100] + "..." if len(description) > 100 else description
-                    output.append(f"   📝 {desc}")
-                output.append("")
-        else:
-            output.append("❌ No venues found matching your criteria.")
-    
-    elif response.status == "complete":
-        output.append("✅ Request completed!")
-    
-    if response.reasoning:
-        output.append(f"\n💭 {response.reasoning}")
-    
-    return "\n".join(output)
+def resolve_location(name: str | None) -> tuple[float, float]:
+    """Resolve location name to (lat, lon). Defaults to center if unknown."""
+    if name:
+        key = name.lower().strip()
+        for loc, coords in AMSTERDAM_LOCATIONS.items():
+            if loc in key:
+                return coords[0], coords[1]
+    return AMSTERDAM_LOCATIONS["center"]
 
 
-def main():
-    """Run interactive chat with the Gastronomist agent."""
-    logger.info("🍽️  Welcome to the Gastronomist Agent Chat!")
-    logger.info("Ask me about restaurants, bars, breakfast, lunch, or dinner in Amsterdam!")
-    logger.info("Type 'quit', 'exit', or 'bye' to end the conversation.\n")
-    
-    # Check if Ollama is running
-    ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    logger.info(f"🔗 Connecting to Ollama at {ollama_url}")
-    
-    # Check database
-    database_url = os.getenv("DATABASE_URL")
-    if not database_url:
-        logger.warning("⚠️ DATABASE_URL not set - I can chat but can't search for venues")
-    else:
-        logger.info("✅ Database connection configured")
-    
-    # Check embeddings API
-    embeddings_api_url = os.getenv("EMBEDDINGS_API_URL", "http://localhost:8001")
+def embed_query(text: str, api_url: str) -> list[float] | None:
+    """Get embedding for text via embeddings API. Returns None on failure."""
     try:
-        import httpx
-        with httpx.Client(timeout=5.0) as client:
-            response = client.get(f"{embeddings_api_url}/health")
-            if response.status_code == 200:
-                logger.info("✅ RAG embeddings API available (semantic search enabled)")
-            else:
-                logger.warning(f"⚠️ Embeddings API returned status {response.status_code}")
+        with httpx.Client(timeout=30.0) as client:
+            r = client.post(f"{api_url}/embed", json={"text": text})
+            r.raise_for_status()
+            return r.json()["embedding"]
     except Exception as e:
-        logger.warning(f"⚠️ Embeddings API not available: {e}")
-        logger.info("💡 Start the embeddings API with: docker compose up -d embeddings-api")
-        logger.info("   (Will use non-RAG search until API is available)\n")
-    
-    logger.info("=" * 60 + "\n")
-    
-    conversation_history = []
-    
-    while True:
-        try:
-            # Get user input
-            user_input = input("You: ").strip()
-            
-            if not user_input:
-                continue
-            
-            # Check for exit commands
-            if user_input.lower() in ["quit", "exit", "bye", "q"]:
-                logger.info("\n👋 Goodbye! Enjoy your meal!")
-                break
-            
-            # Create state with conversation history
-            messages = [HumanMessage(content=msg) for msg in conversation_history] + [
-                HumanMessage(content=user_input)
-            ]
-            state = {
-                "messages": messages,
-                "user_intent": None,
-                "final_itinerary": {},
-                "context_data": {
-                    "search_anchor": None,
-                    "weather": "sunny",
-                },
-                "next_agent": "gastronomist",
-            }
-            
-            # Get agent response
-            logger.info("🤖 Thinking...")
-            result = gastronomist_node(state)
-            response = result["final_response"]
-            
-            # Display response
-            print(f"\n🍽️  Gastronomist:")
-            formatted = format_response(response)
-            print(formatted)
-            print()
-            
-            # Add to conversation history
-            conversation_history.append(user_input)
-            # Add a summary of the response to history (optional, for context)
-            if response.question:
-                conversation_history.append(f"Agent asked: {response.question}")
-        
-        except KeyboardInterrupt:
-            logger.info("\n\n👋 Goodbye! Enjoy your meal!")
-            break
-        except Exception as e:
-            logger.error(f"❌ Error: {e}")
-            print(f"An error occurred: {e}\n")
+        logger.warning(f"⚠️ Embeddings API error: {e}")
+        return None
+
+
+def print_venues(venues: list[dict], *, rag: bool) -> None:
+    """Print retrieved venues with similarity (if RAG) and other fields."""
+    if not venues:
+        print("No venues found.")
+        return
+
+    kind = "RAG" if rag else "non-RAG"
+    print(f"\n📋 Retrieved {len(venues)} venues ({kind})\n")
+    print("-" * 80)
+
+    for i, v in enumerate(venues, 1):
+        name = v.get("name", "?")
+        vtype = v.get("venue_type", "")
+        price = v.get("price_symbol", "")
+        dist = v.get("distance_meters", 0)
+        tags = v.get("tags", [])
+        raw = v.get("description") or ""
+        desc = raw[:120] + "..." if len(raw) > 120 else raw
+
+        line = f"{i}. {name}  ({vtype})  {price}  ·  {dist} m away"
+        if rag and "similarity_score" in v:
+            line += f"  ·  similarity {v['similarity_score']:.3f}"
+        print(line)
+        if tags:
+            print(f"   🏷️  {', '.join(str(t) for t in tags[:6])}")
+        if desc:
+            print(f"   📝 {desc}")
+        print()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Run RAG retrieval for a query and print which venues are returned."
+    )
+    parser.add_argument("query", help="Search query (e.g. 'cozy Italian in Jordaan')")
+    parser.add_argument(
+        "--location",
+        default="center",
+        help="Area in Amsterdam (e.g. jordaan, de pijp, center). Default: center",
+    )
+    parser.add_argument("--limit", type=int, default=10, help="Max venues to return (default 10)")
+    parser.add_argument(
+        "--similarity-threshold",
+        type=float,
+        default=0.45,
+        help="Min similarity for RAG (default 0.45). Lower = more recall, less precise.",
+    )
+    parser.add_argument(
+        "--radius",
+        type=int,
+        default=800,
+        help="Search radius in meters (default 800)",
+    )
+    args = parser.parse_args()
+
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        logger.error("❌ DATABASE_URL not set. Set it in .env.")
+        sys.exit(1)
+    # Gastronomist tools use psycopg2 (sync). Convert async URL if present.
+    if "+asyncpg" in db_url:
+        db_url = db_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
+        os.environ["DATABASE_URL"] = db_url
+
+    api_url = os.getenv("EMBEDDINGS_API_URL", "http://localhost:8001")
+    lat, lon = resolve_location(args.location)
+
+    print(f"🔍 Query: \"{args.query}\"")
+    print(f"📍 Location: {args.location} ({lat:.4f}, {lon:.4f})  |  radius={args.radius}m  |  limit={args.limit}")
+    print()
+
+    # 1. Try RAG
+    embedding = embed_query(args.query, api_url)
+    if embedding:
+        logger.info("🚀 Using RAG (semantic search + location filter)")
+        venues = find_restaurants_with_rag(
+            query_embedding=embedding,
+            lat=lat,
+            lon=lon,
+            radius_meters=args.radius,
+            required_tags=None,
+            price_preference=None,
+            similarity_threshold=args.similarity_threshold,
+            limit=args.limit,
+        )
+        print_venues(venues, rag=True)
+    else:
+        logger.info("🔍 Embeddings API unavailable — using non-RAG search (location + radius only)")
+        venues = find_restaurants(
+            lat=lat,
+            lon=lon,
+            radius_meters=args.radius,
+            required_tags=None,
+            price_preference=None,
+            limit=args.limit,
+        )
+        print_venues(venues, rag=False)
 
 
 if __name__ == "__main__":

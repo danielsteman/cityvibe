@@ -1,5 +1,6 @@
-"""Script to generate embeddings for venues missing embeddings."""
+"""Script to generate embeddings for venues (missing or regenerate all)."""
 
+import argparse
 import asyncio
 import os
 import sys
@@ -17,19 +18,23 @@ from loguru import logger
 from sqlalchemy import select
 
 
-async def generate_missing_embeddings(limit: int | None = None) -> dict:
+async def generate_missing_embeddings(
+    limit: int | None = None,
+    regenerate: bool = False,
+) -> dict:
     """
-    Generate embeddings for venues that are missing them.
+    Generate embeddings for venues that are missing them, or regenerate all.
 
     Args:
-        limit: Optional limit on number of venues to process
+        limit: Optional limit on number of venues to process.
+        regenerate: If True, process all venues and overwrite existing embeddings.
+            Use after updating generate_vibe_text (e.g. adding cuisine) to improve RAG.
 
     Returns:
-        Dictionary with processing statistics
+        Dictionary with processing statistics.
     """
     init_db()
 
-    # Initialize embeddings model
     try:
         embeddings_model = get_embeddings()
         logger.info("✅ Embeddings model loaded successfully")
@@ -48,17 +53,25 @@ async def generate_missing_embeddings(limit: int | None = None) -> dict:
     failed = 0
 
     async with get_session() as session:
-        # Find venues missing embeddings
-        result = await session.execute(
-            select(Venue).where(Venue.vibe_embedding.is_(None)).order_by(Venue.created_at)
-        )
-        venues = result.scalars().all()
+        if regenerate:
+            result = await session.execute(
+                select(Venue).order_by(Venue.created_at)
+            )
+            venues = result.scalars().all()
+        else:
+            result = await session.execute(
+                select(Venue).where(Venue.vibe_embedding.is_(None)).order_by(Venue.created_at)
+            )
+            venues = result.scalars().all()
 
         if limit:
             venues = venues[:limit]
-
         total = len(venues)
-        logger.info(f"📊 Found {total} venues missing embeddings")
+
+        if regenerate:
+            logger.info(f"📊 Regenerating embeddings for {total} venues")
+        else:
+            logger.info(f"📊 Processing {total} venues missing embeddings")
 
         for venue in venues:
             try:
@@ -111,20 +124,27 @@ async def generate_missing_embeddings(limit: int | None = None) -> dict:
 
 async def main():
     """Main entry point."""
-    # Check DATABASE_URL
     if not os.getenv("DATABASE_URL"):
         logger.error("❌ DATABASE_URL environment variable is not set")
         sys.exit(1)
 
-    # Parse limit from command line if provided
-    limit = None
-    if len(sys.argv) > 1:
-        try:
-            limit = int(sys.argv[1])
-        except ValueError:
-            logger.warning(f"⚠️ Invalid limit argument: {sys.argv[1]}, ignoring")
+    parser = argparse.ArgumentParser(description="Generate embeddings for venues.")
+    parser.add_argument(
+        "limit",
+        nargs="?",
+        type=int,
+        default=None,
+        help="Max number of venues to process (default: all)",
+    )
+    parser.add_argument(
+        "--regenerate",
+        action="store_true",
+        help="Regenerate embeddings for all venues (overwrite existing). "
+        "Use after updating vibe text (e.g. adding cuisine) to improve RAG.",
+    )
+    args = parser.parse_args()
 
-    result = await generate_missing_embeddings(limit=limit)
+    result = await generate_missing_embeddings(limit=args.limit, regenerate=args.regenerate)
 
     if result["status"] == "success":
         logger.info("✅ Successfully completed embedding generation")

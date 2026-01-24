@@ -138,46 +138,60 @@ def get_embeddings() -> HuggingFaceEmbeddings:
     return _embeddings_model
 
 
+def _get_features(venue: dict[str, Any] | Any) -> dict[str, Any]:
+    """Extract features dict from venue (dict or SQLModel)."""
+    if isinstance(venue, dict):
+        return venue.get("features") or {}
+    return getattr(venue, "features", None) or {}
+
+
 def generate_vibe_text(venue: dict[str, Any] | Any) -> str:
     """
     Generate dense vibe text from venue data for embedding.
 
-    Creates a structured text string containing venue name, category, description,
-    and tags that will be embedded for semantic search. Prioritizes Identity >
-    Category > Tags > Short Description.
+    Creates a structured text string containing venue name, category, cuisine
+    (from features.kitchen), meal (from features.meal), tags, and description.
+    Prioritizes Identity > Category > Cuisine > Meal > Tags > Description so
+    semantic search (e.g. "Italian restaurant") matches cuisine strongly.
 
     Args:
         venue: Venue dictionary or SQLModel instance with venue data.
-               Expected fields: name, venue_type (category), description, tags
+               Expected fields: name, venue_type, description, tags, features.
 
     Returns:
-        Dense vibe text string for embedding in format:
-        "Name: {name}. Category: {category}. Vibe: {tags}. Description: {description}"
+        Dense vibe text string for embedding, e.g.:
+        "Name: X. Category: Y. Cuisine: Z. Meal: A. Vibe: tags. Description: desc"
     """
     # Extract fields from dict or object
     if isinstance(venue, dict):
         name = venue.get("name", "Unknown")
-        # venue_type like 'Delicatessen' or 'Restaurant'
         category = venue.get("venue_type") or venue.get("category", "Venue")
-        # Take only the first 200 characters of description to avoid 'biography' noise
-        description = venue.get("description", "")[:200]
-        # Join tags like 'Italian, Cozy, Romantic'
-        tags = venue.get("tags", [])
-        tags_str = ", ".join(tags) if tags else "general"
+        description = (venue.get("description") or "")[:200]
+        tags = venue.get("tags", []) or []
     else:
-        # SQLModel instance
         name = getattr(venue, "name", "Unknown") or "Unknown"
-        # venue_type like 'Delicatessen' or 'Restaurant'
         category = (
             getattr(venue, "venue_type", None)
             or getattr(venue, "category", None)
             or "Venue"
         )
-        # Take only the first 200 characters of description to avoid 'biography' noise
         description = (getattr(venue, "description", None) or "")[:200]
-        # Join tags like 'Italian, Cozy, Romantic'
         tags = getattr(venue, "tags", []) or []
-        tags_str = ", ".join(tags) if tags else "general"
 
-    # The format specifically designed for retrieval models
-    return f"Name: {name}. Category: {category}. Vibe: {tags_str}. Description: {description}"
+    features = _get_features(venue)
+    # Cuisine from features.kitchen (Debuik "Keuken") – critical for "Italian" etc.
+    cuisine = (features.get("kitchen") or "").strip() if isinstance(features.get("kitchen"), str) else ""
+    # Meal from features.meal (e.g. "Breakfast, Lunch, Dinner") – helps "breakfast spot"
+    meal = (features.get("meal") or "").strip() if isinstance(features.get("meal"), str) else ""
+
+    tags_str = ", ".join(tags) if tags else "general"
+
+    parts = [f"Name: {name}", f"Category: {category}"]
+    if cuisine:
+        parts.append(f"Cuisine: {cuisine}")
+    if meal:
+        parts.append(f"Meal: {meal}")
+    parts.append(f"Vibe: {tags_str}")
+    parts.append(f"Description: {description}")
+
+    return ". ".join(parts)

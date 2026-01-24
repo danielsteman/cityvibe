@@ -1,6 +1,7 @@
 """Celery tasks for scraping venue sources (Debuik, Iamsterdam, etc.)."""
 
 from datetime import datetime
+from uuid import uuid4
 
 from celery import shared_task
 from cityvibe_core.database.connection import init_db
@@ -122,20 +123,25 @@ async def _save_venue_dicts(venue_dicts: list[dict], source: str) -> dict:
                 was_existing = existing_row is not None
                 existing_embedding = existing_row[1] if existing_row else None
 
-                # Prepare data for insert (exclude id, created_at, updated_at, vibe_embedding)
-                # These are handled by the database or preserved on conflict
+                # Prepare data for insert (exclude created_at, updated_at, vibe_embedding)
+                # Generate UUID for id if not present (for new inserts)
+                # created_at and updated_at are handled by the database
                 insert_data = {
                     k: v
                     for k, v in converted_data.items()
-                    if k not in ("id", "created_at", "updated_at", "vibe_embedding")
+                    if k not in ("created_at", "updated_at", "vibe_embedding")
                 }
+                # Generate UUID for new inserts if id is not in the data
+                if "id" not in insert_data:
+                    insert_data["id"] = uuid4()
 
                 # Use PostgreSQL native UPSERT with ON CONFLICT DO UPDATE
                 # Preserve vibe_embedding if it already exists (don't overwrite existing embeddings)
+                # Don't update id, created_at, or website_url on conflict
                 update_dict = {
                     k: v
                     for k, v in insert_data.items()
-                    if k != "website_url"  # Don't update the conflict key
+                    if k not in ("id", "website_url", "created_at")  # Don't update these on conflict
                 }
                 # Preserve existing vibe_embedding on conflict
                 update_dict["vibe_embedding"] = Venue.__table__.c.vibe_embedding

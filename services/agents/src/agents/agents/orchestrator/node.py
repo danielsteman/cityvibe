@@ -121,8 +121,9 @@ class SkeletonSlot(BaseModel):
 class RoutingCall(BaseModel):
     agent: Literal["Gastronomist", "Socialite", "Lumière", "Weerman"]
     priority: int
-    task: str
-    query: Dict[str, Any]
+    task: str  # Comprehensive task description (3-5 sentences): objective, context, constraints, expected behavior
+    context: Dict[str, Any] = Field(default_factory=dict)  # Full user context (party, vibe, time, area, etc.)
+    query: Dict[str, Any]  # structured_constraints for machine-readable params
     expected_result_count: int = 10
 
 

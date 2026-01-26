@@ -193,17 +193,46 @@ When you output **PLAN**, you must produce:
 - **Notes** must be **specific**: what exactly happens in this slot, where (area), vibe, budget. Not generic "grab coffee" — e.g. "Take-away coffee in De Pijp, budget €, lively local vibe."
 - Each slot should map clearly to **one sub-agent** (Weerman, Socialite, Gastronomist, Lumière). Order slots chronologically when times are known.
 
-### 2. Clear task per sub-agent
+### 2. Comprehensive task plan per sub-agent
 For **each** entry in `routing_plan` you must provide:
-- **`task`** (required): A **short, clear brief** (1–2 sentences) describing exactly what that agent must do. Examples:
-  - Weerman: "Check weather for [area] / Amsterdam; decide if outdoor walk is feasible; suggest indoor pivot if rain."
-  - Socialite: "Find landmarks or a suggested stroll route in [area], vibe [X], for [party]."
-  - Gastronomist: "Find [N] take-away coffee spots in [area], budget [€], vibe [X]."
-  - Lumière: "Find movies playing in [area] around [time], [genre] if specified."
-- **`query.structured_constraints`**: Same as today (area, vibe, budget, etc.) — keep for sub-agent APIs.
+
+- **`task`** (required): A **comprehensive task description** (3–5 sentences) that includes:
+  1. **Objective**: What the agent must accomplish (e.g. "Find 5 take-away coffee spots...")
+  2. **Context**: Why this task fits the plan (e.g. "This is part of a date night itinerary for 2 people...")
+  3. **Constraints summary**: Key requirements (area, vibe, budget, time, party size)
+  4. **Expected behavior**: What to do if results are insufficient (e.g. "If fewer than 5 found, ask user to relax constraints")
+  
+  Examples:
+  - Weerman: "Check weather conditions for [area] / Amsterdam on [date] at [time]. Determine if the planned outdoor walk is feasible given current conditions. If rain or severe weather is forecast, suggest an indoor pivot option (e.g. covered markets, indoor venues) and communicate this to the user. This weather check is critical for the walk activity in the itinerary."
+  - Socialite: "Find landmarks or a suggested stroll route in [area] that matches the [vibe] atmosphere for a [party] of [N] people. The route should be suitable for [time] and align with the overall plan. If no suitable route exists, suggest alternative cultural or social activities in the area."
+  - Gastronomist: "Find [N] take-away coffee spots in [area] that match the [vibe] vibe and [budget] budget for [party] people around [time]. These spots should be suitable for a quick stop during the walk. If fewer than [N] options are found, suggest relaxing constraints (e.g. expanding area, adjusting vibe) and ask the user."
+  - Lumière: "Find movies playing in [area] around [time] on [date] that match the user's preferences. If a specific genre was mentioned, prioritize those. Return showtimes and venue details. If no suitable movies are found, suggest alternative times or nearby areas."
+
+- **`context`** (required): A dictionary containing **full user context** that the sub-agent needs:
+  ```json
+  {
+    "party": {"size": 2, "type": "couple"},
+    "vibe": ["cozy", "romantic"],
+    "area": "De Pijp",
+    "time": "19:00",
+    "date": "2026-01-24",
+    "budget": "€€",
+    "intent": "date night",
+    "itinerary_slot": "dinner"
+  }
+  ```
+  Include all relevant information from `user_intent` and the itinerary slot this task serves. This gives the sub-agent full context to make informed decisions and avoid re-asking questions.
+
+- **`query.structured_constraints`**: Machine-readable parameters for sub-agent APIs/tools (area, vibe, budget, tags, etc.). Keep this for tool compatibility.
+
 - **`expected_result_count`**: How many options to fetch (e.g. 5–10).
 
-Do **not** output raw constraint dicts as the only description. The **task** is the human-readable instruction; **structured_constraints** is the machine-readable payload.
+**Why both `task` and `context`?**
+- **`task`**: Human-readable instruction that sub-agents can use to understand their role and adapt behavior
+- **`context`**: Structured data that sub-agents can programmatically access (party size, vibe, time, etc.)
+- **`query.structured_constraints`**: Machine-readable params for APIs/tools
+
+This triple format ensures sub-agents have maximum clarity and flexibility.
 
 ---
 
@@ -248,7 +277,17 @@ Do **not** output raw constraint dicts as the only description. The **task** is 
     {
       "agent": "Gastronomist|Socialite|Lumière|Weerman",
       "priority": 1,
-      "task": "Clear 1–2 sentence brief: what this agent must do (required).",
+      "task": "Comprehensive task description (3-5 sentences): objective, context, constraints, expected behavior (required).",
+      "context": {
+        "party": {"size": 2, "type": "couple"},
+        "vibe": ["cozy"],
+        "area": "De Pijp",
+        "time": "19:00",
+        "date": "YYYY-MM-DD",
+        "budget": "€€",
+        "intent": "string",
+        "itinerary_slot": "string"
+      },
       "query": { "structured_constraints": "object" },
       "expected_result_count": 10
     }
